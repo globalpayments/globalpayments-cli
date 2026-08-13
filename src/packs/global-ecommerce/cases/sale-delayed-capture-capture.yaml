@@ -1,0 +1,26 @@
+id: sale-delayed-capture-capture
+name: "Sale: Capture of pre-authorized transaction — Form Q10 / Q16"
+required: true
+formQuestion: 16
+observability: polling
+tags:
+  - sale
+  - capture
+  - delayed-capture
+  - form-required
+mode: latest
+# Pair with sale-delayed-capture-auth. Once the PREAUTHORIZED transaction
+# (amount 1001) is captured, this case expects status CAPTURED on that same amount.
+# Validates Form Q10 (capture_mode: LATER is subsequently captured) and Q16.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

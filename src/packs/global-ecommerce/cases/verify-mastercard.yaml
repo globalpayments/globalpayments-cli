@@ -1,0 +1,18 @@
+id: verify-mastercard
+name: "Verify: Mastercard — confirm card is available for payment"
+required: true
+tags:
+  - verify
+  - pre-sale
+  - mastercard
+mode: latest
+matcher:
+  type: VERIFICATION
+  channel: CNP
+  cardBrand: MASTERCARD
+expect:
+  latest:
+    statusIn:
+      - VERIFIED
+evaluator:
+  type: declarative

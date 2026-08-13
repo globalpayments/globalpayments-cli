@@ -1,0 +1,19 @@
+id: basic-sale-approved
+name: Basic sale approved
+required: true
+tags:
+  - smoke
+mode: latest
+matcher:
+  reference: cert-smoke-sale-001
+  type: SALE
+  channel: CNP
+  currency: USD
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

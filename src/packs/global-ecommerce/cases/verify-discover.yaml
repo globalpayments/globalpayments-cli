@@ -1,0 +1,18 @@
+id: verify-discover
+name: "Verify: Discover — confirm card is available for payment"
+required: true
+tags:
+  - verify
+  - pre-sale
+  - discover
+mode: latest
+matcher:
+  type: VERIFICATION
+  channel: CNP
+  cardBrand: DISCOVER
+expect:
+  latest:
+    statusIn:
+      - VERIFIED
+evaluator:
+  type: declarative

@@ -1,0 +1,27 @@
+id: 3ds-fail
+name: "3DS: Authentication failed — transaction must not proceed (amount 2004) — Form Q18"
+required: false
+formQuestion: 18
+observability: partial
+tags:
+  - 3ds
+  - fail
+  - risk-management
+  - negative
+mode: latest
+# NEGATIVE TEST CASE — Form Q18 (3DS validation spreadsheet)
+# The cert form expects the integrator does NOT submit a capture when
+# authentication fails. GP API surfaces 3DS results on the three_ds object
+# during the auth flow, NOT in /transactions. Status here reflects whether
+# a transaction record appears at all (it should not for a hard fail).
+# Mark required: false; verify manually via Actions API or GP portal.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 2004
+expect:
+  latest:
+    statusIn:
+      - CARD_AUTHENTICATION_FAILED
+evaluator:
+  type: declarative

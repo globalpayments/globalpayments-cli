@@ -1,0 +1,26 @@
+id: sale-capture
+name: "Sale: AUTO Capture transaction (amount 1000) — Form Q15"
+required: true
+formQuestion: 15
+observability: polling
+tags:
+  - sale
+  - capture
+  - form-required
+mode: latest
+# Form Q15: Process an AUTO Capture transaction of amount 100.
+# This pack uses amount 1000 to uniquely identify this transaction during polling.
+# Instruct integrators to use 1000 when running their cert transaction for Q15.
+# Card: 4263970000005262 (Visa, last4 5262) is recommended by the form.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1000
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

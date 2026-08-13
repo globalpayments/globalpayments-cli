@@ -1,0 +1,37 @@
+id: cvv-mismatch-void
+name: "CVV: Mismatch — transaction voided/reversed — Form Q6 / Q7"
+required: false
+formQuestion: 6
+observability: manual
+tags:
+  - cvv
+  - mismatch
+  - void
+  - negative
+  - form-required
+mode: latest
+# Form Q6: Confirm you are reading cvv_result and taking action if result is not MATCHED.
+# Form Q7: Confirm that if CVV (and AVS) don't match and the transaction was successful,
+#          you void/reverse the auth and ask the customer to try again.
+#
+# OBSERVABILITY: manual
+# The cvv_result field is returned in the original transaction CREATE response body,
+# not surfaced in the /transactions list endpoint. The subsequent void/reversal IS
+# observable via polling (it will appear as a REVERSED SALE), but confirming the
+# integrator read cvv_result before deciding to void requires manual inspection of
+# request/response logs or the GP portal.
+#
+# This case observes the downstream void. Use amount 1010 for the original sale
+# and ensure it is reversed after the CVV mismatch.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1010
+expect:
+  latest:
+    statusIn:
+      - REVERSED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

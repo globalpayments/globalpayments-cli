@@ -1,0 +1,16 @@
+id: global-core
+name: Global Core
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: general
+  channel: omnichannel
+tags:
+  - core
+cases:
+  directory: cases
+evaluators:
+  default: evaluators/default-latest.js
+filters:
+  accountName: example-account

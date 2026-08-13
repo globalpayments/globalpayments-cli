@@ -1,0 +1,24 @@
+# gp-cli configuration — minimal example
+# Credentials are read from environment variables; this file is optional.
+# Run `gpcli init` to generate a .env.example for your project.
+
+version: 1
+environment: sandbox   # or: production
+
+auth:
+  mode: app-credentials
+  appId: ${GP_API_APP_ID}
+  appKey: ${GP_API_APP_KEY}
+
+# Optional: restrict matching to a specific GP account
+# account:
+#   accountName: ${GP_ACCOUNT_NAME}
+
+# Optional: tune polling (defaults are applied if omitted)
+# polling:
+#   intervalMs: 3000
+#   lookbackMinutes: 10
+
+# Optional: point at local pack definitions (in addition to bundled ones)
+# packs:
+#   directory: ./packs

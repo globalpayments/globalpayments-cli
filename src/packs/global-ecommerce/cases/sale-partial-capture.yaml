@@ -1,0 +1,25 @@
+id: sale-partial-capture
+name: "Sale: Multi-Capture — first partial capture (amount 1003) — Form Q17"
+required: false
+formQuestion: 17
+observability: polling
+tags:
+  - sale
+  - partial-capture
+  - multi-capture
+mode: latest
+# Form Q17: Process a Multi-Capture transaction. This case observes a partial
+# capture against a pre-authorized amount 1003 transaction.
+# See also sale-multi-capture-second.yaml for the subsequent partial capture.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1003
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

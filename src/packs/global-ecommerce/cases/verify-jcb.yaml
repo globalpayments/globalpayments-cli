@@ -1,0 +1,18 @@
+id: verify-jcb
+name: "Verify: JCB — confirm card is available for payment"
+required: true
+tags:
+  - verify
+  - pre-sale
+  - jcb
+mode: latest
+matcher:
+  type: VERIFICATION
+  channel: CNP
+  cardBrand: JCB
+expect:
+  latest:
+    statusIn:
+      - VERIFIED
+evaluator:
+  type: declarative

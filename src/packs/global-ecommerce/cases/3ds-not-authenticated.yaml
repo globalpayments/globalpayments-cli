@@ -1,0 +1,24 @@
+id: 3ds-not-authenticated
+name: "3DS: Not authenticated — transaction must not proceed (amount 2003) — Form Q18"
+required: false
+formQuestion: 18
+observability: partial
+tags:
+  - 3ds
+  - not-authenticated
+  - risk-management
+  - negative
+mode: latest
+# NEGATIVE TEST CASE — Form Q18 (3DS validation spreadsheet)
+# GP API surfaces 3DS authentication results on the three_ds object during the
+# auth flow, NOT in /transactions. Mark required: false; verify manually.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 2003
+expect:
+  latest:
+    statusIn:
+      - AUTHENTICATION_FAILED
+evaluator:
+  type: declarative

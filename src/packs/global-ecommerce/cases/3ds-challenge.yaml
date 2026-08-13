@@ -1,0 +1,23 @@
+id: 3ds-challenge
+name: "3DS: Challenge flow — authenticated sale (amount 2002) — Form Q18"
+required: false
+formQuestion: 18
+observability: polling
+tags:
+  - 3ds
+  - challenge
+  - risk-management
+  - form-required
+mode: latest
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 2002
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

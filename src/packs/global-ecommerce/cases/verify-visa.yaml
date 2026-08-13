@@ -1,0 +1,18 @@
+id: verify-visa
+name: "Verify: Visa — confirm card is available for payment"
+required: true
+tags:
+  - verify
+  - pre-sale
+  - visa
+mode: latest
+matcher:
+  type: VERIFICATION
+  channel: CNP
+  cardBrand: VISA
+expect:
+  latest:
+    statusIn:
+      - VERIFIED
+evaluator:
+  type: declarative

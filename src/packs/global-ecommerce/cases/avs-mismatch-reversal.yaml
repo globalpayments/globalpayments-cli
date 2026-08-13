@@ -1,0 +1,35 @@
+id: avs-mismatch-reversal
+name: "AVS: Mismatch — transaction reversed — Form Q8"
+required: false
+formQuestion: 8
+observability: manual
+tags:
+  - avs
+  - mismatch
+  - reversal
+  - negative
+  - form-required
+mode: latest
+# Form Q8: If AVS is available (GB, USA, CA), confirm you submit AVS fields and read
+#          avs_address_result / avs_postal_result, then void/reverse if not MATCHED.
+#
+# OBSERVABILITY: manual
+# avs_address_result and avs_postal_result are returned in the original transaction
+# CREATE response, not in the /transactions list endpoint. The subsequent reversal
+# IS observable via polling. This case confirms the integrator reversed a transaction
+# after an AVS mismatch. Use amount 1011 for the original auth so this case is
+# distinguishable during polling.
+#
+# Only applicable for integrations processing in GB, USA, or CA.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1011
+expect:
+  latest:
+    statusIn:
+      - REVERSED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

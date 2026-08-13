@@ -1,0 +1,20 @@
+id: sale-token
+name: "Sale: Capture with payment token (amount 1004)"
+required: false
+tags:
+  - sale
+  - token
+  - tokenization
+mode: latest
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1004
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

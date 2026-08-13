@@ -1,0 +1,23 @@
+id: 3ds-frictionless
+name: "3DS: Frictionless flow — authenticated sale (amount 2001) — Form Q18"
+required: false
+formQuestion: 18
+observability: polling
+tags:
+  - 3ds
+  - frictionless
+  - risk-management
+  - form-required
+mode: latest
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 2001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

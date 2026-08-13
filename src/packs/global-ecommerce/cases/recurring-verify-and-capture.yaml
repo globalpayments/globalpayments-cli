@@ -1,0 +1,22 @@
+id: recurring-verify-and-capture
+name: "Recurring: Initial verify and recurring payment (amount 3001) — Form Q19"
+required: false
+formQuestion: 19
+observability: polling
+tags:
+  - recurring
+  - token
+  - form-required
+mode: latest
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 3001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

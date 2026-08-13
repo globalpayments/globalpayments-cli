@@ -1,0 +1,17 @@
+id: global-ecommerce
+name: Global Payments eCommerce — Core Test Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+  channel: CNP
+tags:
+  - global
+  - ecomm
+  - cnp
+  - gp-api
+cases:
+  directory: cases
+filters:
+  channel: CNP

@@ -1,0 +1,19 @@
+id: sale-moto
+name: "Sale: Mail Order / Telephone Order — MOTO (amount 1002)"
+required: true
+tags:
+  - sale
+  - moto
+mode: latest
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 1002
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

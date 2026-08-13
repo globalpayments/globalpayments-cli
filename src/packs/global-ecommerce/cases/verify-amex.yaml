@@ -1,0 +1,18 @@
+id: verify-amex
+name: "Verify: American Express — confirm card is available for payment"
+required: true
+tags:
+  - verify
+  - pre-sale
+  - amex
+mode: latest
+matcher:
+  type: VERIFICATION
+  channel: CNP
+  cardBrand: AMEX
+expect:
+  latest:
+    statusIn:
+      - VERIFIED
+evaluator:
+  type: declarative

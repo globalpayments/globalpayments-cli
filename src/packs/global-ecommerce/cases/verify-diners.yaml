@@ -1,0 +1,18 @@
+id: verify-diners
+name: "Verify: Diners Club — confirm card is available for payment"
+required: true
+tags:
+  - verify
+  - pre-sale
+  - diners
+mode: latest
+matcher:
+  type: VERIFICATION
+  channel: CNP
+  cardBrand: DINERS
+expect:
+  latest:
+    statusIn:
+      - VERIFIED
+evaluator:
+  type: declarative

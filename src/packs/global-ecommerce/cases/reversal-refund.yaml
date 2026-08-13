@@ -1,0 +1,24 @@
+id: reversal-refund
+name: "Reversal: Reverse a refund before settlement (amount 6005) — Form Q18"
+required: true
+formQuestion: 18
+observability: polling
+tags:
+  - reversal
+  - refund
+  - post-sale
+  - form-required
+mode: latest
+# Form Q18: Confirms integrator is using REVERSALS via the API (against a refund).
+matcher:
+  type: REFUND
+  channel: CNP
+  amount: 6005
+expect:
+  latest:
+    statusIn:
+      - REVERSED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

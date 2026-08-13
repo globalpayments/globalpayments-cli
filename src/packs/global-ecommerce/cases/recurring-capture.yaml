@@ -1,0 +1,22 @@
+id: recurring-capture
+name: "Recurring: Subsequent capture with tokenized card (amount 3002) — Form Q19"
+required: false
+formQuestion: 19
+observability: polling
+tags:
+  - recurring
+  - token
+  - form-required
+mode: latest
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 3002
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative
