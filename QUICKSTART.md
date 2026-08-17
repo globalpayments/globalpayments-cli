@@ -17,6 +17,8 @@ npm run build
 node dist/bin.js --help
 ```
 
+No Node.js/npm? Use Docker instead — skip the `npm install`/`npm run build` steps above and run every `npm run dev -- <command>` in this guide as `docker compose run --rm gpcli <command>` (e.g. `docker compose run --rm gpcli --help`).
+
 ## Set Up Credentials
 
 ```bash

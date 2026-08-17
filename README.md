@@ -34,6 +34,14 @@ npm run build
 node dist/bin.js --help
 ```
 
+### Via Docker (no Node.js/npm required)
+```bash
+git clone https://github.com/globalpayments/globalpayments-cli.git
+cd globalpayments-cli
+docker compose run --rm gpcli --help
+```
+The `gpcli` service builds a local image and runs your project directory as its working directory, so config, `.env`, and results all read/write to the same paths as running the CLI natively — swap `--help` for any other command (`init --with-config`, `doctor`, `run --cert global-core`, etc.).
+
 ## Requirements
 
 - **Node.js** ≥ 20

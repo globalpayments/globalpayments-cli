@@ -1,0 +1,10 @@
+services:
+  gpcli:
+    build: .
+    image: globalpayments-cli:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    env_file:
+      - path: .env
+        required: false
