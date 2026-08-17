@@ -12,7 +12,7 @@ auth:
 
 # Optional: restrict matching to a specific GP account
 # account:
-#   accountName: ${GP_ACCOUNT_NAME}
+#   accountName: ${GP_API_ACCOUNT_NAME}
 
 # Optional: tune polling (defaults are applied if omitted)
 # polling:

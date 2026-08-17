@@ -7,7 +7,7 @@
 ```bash
 # Clone and install
 git clone https://github.com/globalpayments/globalpayments-cli.git
-cd gp-cli
+cd globalpayments-cli
 npm install
 
 # Build the CLI
@@ -26,8 +26,8 @@ export GP_API_APP_KEY="your-app-key"
 export GP_API_ENVIRONMENT="sandbox"
 
 # Option 2: Config file
-npm run dev -- init
-# Follows prompts, creates .gpcli/config.yaml
+npm run dev -- init --with-config
+# Non-interactive — writes .env.example and .gpcli/config.yaml; edit them directly
 ```
 
 ## Test Your Setup
@@ -142,18 +142,13 @@ ps aux | grep gpcli
    cat CONTRIBUTING.md
    ```
 
-3. **Check PREP-SUMMARY.md** — For detailed technical info
-   ```bash
-   cat PREP-SUMMARY.md
-   ```
-
-4. **Try all CLI commands** — Get familiar with the full tool
+3. **Try all CLI commands** — Get familiar with the full tool
    ```bash
    npm run dev -- cases list --pack global-core
    npm run dev -- cases show global-core:sale-approved
    ```
 
-5. **Integrate into your CI/CD** — Run gpcli automatically on every deploy
+4. **Integrate into your CI/CD** — Run gpcli automatically on every deploy
    ```yaml
    # Example: GitHub Actions
    - name: Validate certification

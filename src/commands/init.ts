@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { listBuiltinPackIds } from '../core/builtin-packs.js';
+import { DEFAULT_CONFIG_PATH } from '../config/load.js';
 
 const STARTER_ENV = `# Global Payments API Credentials
 # Set these in your environment or in a .env file loaded by your shell.
@@ -11,10 +12,10 @@ GP_API_APP_ID=your_app_id_here
 GP_API_APP_KEY=your_app_key_here
 
 # Optional: override target environment (default: sandbox)
-# GP_ENVIRONMENT=sandbox
+# GP_API_ENVIRONMENT=sandbox
 
 # Optional: restrict matching to a specific account
-# GP_ACCOUNT_NAME=your_account_name
+# GP_API_ACCOUNT_NAME=your_account_name
 `;
 
 const STARTER_CONFIG = `# gp-cli configuration (optional)
@@ -32,7 +33,7 @@ auth:
 
 # Uncomment to restrict matching to a specific GP account:
 # account:
-#   accountName: \${GP_ACCOUNT_NAME}
+#   accountName: \${GP_API_ACCOUNT_NAME}
 
 # Uncomment to tune polling behaviour:
 # polling:
@@ -64,10 +65,11 @@ export function registerInitCommand(program: Command): void {
           console.log(pc.gray('–'), 'Already exists (skipped):', pc.cyan(envPath));
         }
 
-        // Optionally write config.yaml
+        // Optionally write config.yaml, at the same default path every other command reads from
         if (options.withConfig) {
-          const configPath = path.join(outputDir, 'gpcli.config.yaml');
+          const configPath = path.join(outputDir, DEFAULT_CONFIG_PATH);
           if (!existsSync(configPath)) {
+            await mkdir(path.dirname(configPath), { recursive: true });
             await writeFile(configPath, STARTER_CONFIG, 'utf8');
             console.log(pc.green('✓'), 'Created:', pc.cyan(configPath));
           } else {

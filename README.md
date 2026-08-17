@@ -28,7 +28,7 @@ npx @globalpayments/cli --help
 ### Local development
 ```bash
 git clone https://github.com/globalpayments/globalpayments-cli.git
-cd gp-cli
+cd globalpayments-cli
 npm install
 npm run build
 node dist/bin.js --help
@@ -50,10 +50,11 @@ export GP_API_ACCOUNT_NAME="your-account-name"  # optional; restricts matching t
 export GP_API_ENVIRONMENT="sandbox"              # or: production
 ```
 
-Or create `.gpcli/config.yaml`:
+Or generate `.gpcli/config.yaml`:
 ```bash
-npx @globalpayments/cli init
-# Opens editor to configure config file interactively
+npx @globalpayments/cli init --with-config
+# Writes .env.example (always) and .gpcli/config.yaml (with --with-config)
+# Non-interactive — edit the generated files directly
 ```
 
 ### 2. List available certification cases
@@ -80,10 +81,11 @@ npx @globalpayments/cli report --input .gpcli/results/latest.json
 ## CLI Commands
 
 ### `gpcli init`
-Generate a config file interactively. Creates `.gpcli/config.yaml` with environment variable placeholders.
+Non-interactive scaffolding — writes template files, no prompts. Always writes `.env.example`; add `--with-config` to also write `.gpcli/config.yaml` (the same default path every other command reads from).
 
 **Options:**
-- `--config <path>` — Output file (default: `.gpcli/config.yaml`)
+- `--dir <path>` — Output directory (default: `.`)
+- `--with-config` — Also generate `.gpcli/config.yaml`
 
 ---
 
@@ -97,7 +99,8 @@ Validate GP API access and resolve active certification packs without polling. S
 - Suggested next steps
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
+- `--config <path>` — Config file (optional; omit to use env vars only)
+- `--env-file <path>` — Env file to load (default: `.env`)
 
 ---
 
@@ -106,6 +109,7 @@ Quick auth validation: fetch an access token, confirm scope, and verify account 
 
 **Options:**
 - `--config <path>` — Config file (default: `.gpcli/config.yaml`)
+- `--env-file <path>` — Env file to load (default: `.env`)
 
 **Example:**
 ```bash
@@ -154,10 +158,12 @@ gpcli cases show global-core:sale-approved --config .gpcli/config.yaml
 Poll for case matches in real-time. Continuously fetches transactions, evaluates all cases, and updates the screen. Useful for exploratory testing and debugging matcher rules.
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
-- `--timeout <duration>` — Max poll time (e.g., `10m`, `5s`; default: infinite)
-- `--pack <packId...>` — Override active packs (space-separated)
-- `--json` — Output JSON instead of pretty-printed results
+- `--config <path>` — Config file (optional; omit to use env vars only)
+- `--env-file <path>` — Env file to load (default: `.env`)
+- `--timeout <duration>` — Max poll time (e.g., `10m`, `5s`; default: `10m`)
+- `--pack <packId...>` — Activate additional pack(s) (space-separated)
+- `--profile <name>` — Activate profile-defined packs (from config)
+- `--cert <name>` — Activate a bundled certification suite by name (shorthand for `--pack`)
 
 **Exit code:**
 - `0` — Timeout or user interrupt; results persisted
@@ -182,9 +188,12 @@ Recent transactions:
 CI-friendly mode: single polling cycle, exit non-zero if any required cases fail. Use in automated pipelines.
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
-- `--timeout <duration>` — Max poll time (e.g., `5m`, `30s`)
-- `--pack <packId...>` — Override active packs (space-separated)
+- `--config <path>` — Config file (optional; omit to use env vars only)
+- `--env-file <path>` — Env file to load (default: `.env`)
+- `--timeout <duration>` — Max poll time (e.g., `5m`, `30s`; default: `5m`)
+- `--pack <packId...>` — Activate additional pack(s) (space-separated)
+- `--profile <name>` — Activate profile-defined packs (from config)
+- `--cert <name>` — Activate a bundled certification suite by name (shorthand for `--pack`)
 - `--json` — Output JSON instead of pretty-printed results
 
 **Exit code:**
@@ -240,8 +249,8 @@ account:
 
 # Optional: polling tuning
 polling:
-  intervalMs: 3000              # poll interval (default: 5000)
-  lookbackMinutes: 15           # transaction window (default: 15)
+  intervalMs: 3000              # poll interval (default: 3000)
+  lookbackMinutes: 15           # transaction window (default: 10)
   overlapSeconds: 30            # overlap between windows (default: 30)
   pageSize: 100                 # transactions per page (default: 100)
   order: DESC                   # DESC (newest first) or ASC (default: DESC)
@@ -264,9 +273,10 @@ activePacks:
 | `GP_API_APP_ID` | GP API app ID | yes | `ba3b...` |
 | `GP_API_APP_KEY` | GP API app key | yes | `Afje...` |
 | `GP_API_ACCOUNT_NAME` | Account to match (optional filter) | no | `my-integration` |
-| `GP_API_ENVIRONMENT` | GP environment | yes | `sandbox` or `production` |
+| `GP_API_ENVIRONMENT` | GP environment | no (default: `sandbox`) | `sandbox` or `production` |
+| `GP_API_VERSION` | GP API version | no (default: `2021-03-22`) | `2021-03-22` |
 
-All variables are read by `gpcli init`, `gpcli doctor`, and all polling commands.
+All commands load `.env` automatically (override with `--env-file <path>`). Variables are read directly when no `--config` file is used, or substituted into a config file's `${VAR}` placeholders otherwise.
 
 ## How Polling Works
 
@@ -444,7 +454,7 @@ jobs:
           GP_API_APP_KEY: ${{ secrets.GP_APP_KEY }}
           GP_API_ENVIRONMENT: sandbox
         run: |
-          npx @globalpayments/cli init --config .gpcli/config.yaml
+          npx @globalpayments/cli init --with-config
           npx @globalpayments/cli run --config .gpcli/config.yaml --timeout 5m --json
 
       - name: Upload results

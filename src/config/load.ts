@@ -59,9 +59,9 @@ function configFromEnv(env: NodeJS.ProcessEnv): Record<string, unknown> {
       appKey: env['GP_API_APP_KEY'] ?? '',
       apiVersion: env['GP_API_VERSION'] ?? '2021-03-22'
     },
-    environment: env['GP_ENVIRONMENT'] ?? 'sandbox',
+    environment: env['GP_API_ENVIRONMENT'] ?? 'sandbox',
     account: {
-      accountName: env['GP_ACCOUNT_NAME']
+      accountName: env['GP_API_ACCOUNT_NAME']
     }
   };
 }

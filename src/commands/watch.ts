@@ -15,6 +15,7 @@ import {
 } from '../gpapi/auth.js';
 import { HttpGpApiClient } from '../gpapi/client.js';
 import { CertificationEngine } from '../core/engine.js';
+import type { CaseRunState } from '../core/engine.js';
 import { loadEvaluators, loadPackEvaluators } from '../core/evaluator.js';
 import { persistRunResult } from '../core/result-store.js';
 import { redactObject } from '../core/redaction.js';
@@ -22,7 +23,7 @@ import { enrichCasesWithDiagnostics } from '../core/diagnostics.js';
 import { parseDuration, formatDuration } from '../util/index.js';
 import type { RunResult, CaseEvaluationResult, ObservedTxn } from '../types/domain.js';
 
-function renderCaseState(state: CaseEvaluationResult): string {
+function renderCaseState(state: CaseRunState): string {
   const icon = state.status === 'pass' ? pc.green('✓') : state.status === 'fail' ? pc.red('✗') : pc.gray('○');
   const status = state.status === 'pass' ? pc.green('PASS') : state.status === 'fail' ? pc.red('FAIL') : pc.gray('PEND');
   const reason = state.status !== 'pass' ? pc.gray(` — ${state.reason}`) : '';
