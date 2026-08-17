@@ -17,7 +17,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "gpcli": "dist/bin.js"
+    "globalpayments": "dist/bin.js"
   },
   "main": "dist/index.js",
   "files": [

@@ -38,9 +38,9 @@ node dist/bin.js --help
 ```bash
 git clone https://github.com/globalpayments/globalpayments-cli.git
 cd globalpayments-cli
-docker compose run --rm gpcli --help
+docker compose run --rm globalpayments --help
 ```
-The `gpcli` service builds a local image and runs your project directory as its working directory, so config, `.env`, and results all read/write to the same paths as running the CLI natively — swap `--help` for any other command (`init --with-config`, `doctor`, `run --cert global-core`, etc.).
+The `globalpayments` service builds a local image and runs your project directory as its working directory, so config, `.env`, and results all read/write to the same paths as running the CLI natively — swap `--help` for any other command (`init --with-config`, `doctor`, `run --cert global-core`, etc.).
 
 ## Requirements
 
@@ -88,7 +88,7 @@ npx @globalpayments/cli report --input .gpcli/results/latest.json
 
 ## CLI Commands
 
-### `gpcli init`
+### `globalpayments init`
 Non-interactive scaffolding — writes template files, no prompts. Always writes `.env.example`; add `--with-config` to also write `.gpcli/config.yaml` (the same default path every other command reads from).
 
 **Options:**
@@ -97,7 +97,7 @@ Non-interactive scaffolding — writes template files, no prompts. Always writes
 
 ---
 
-### `gpcli doctor`
+### `globalpayments doctor`
 Validate GP API access and resolve active certification packs without polling. Safe to run before watch/run.
 
 **Output:**
@@ -112,7 +112,7 @@ Validate GP API access and resolve active certification packs without polling. S
 
 ---
 
-### `gpcli auth test`
+### `globalpayments auth test`
 Quick auth validation: fetch an access token, confirm scope, and verify account access.
 
 **Options:**
@@ -121,13 +121,13 @@ Quick auth validation: fetch an access token, confirm scope, and verify account 
 
 **Example:**
 ```bash
-gpcli auth test --config .gpcli/config.yaml
+globalpayments auth test --config .gpcli/config.yaml
 # Output: ✓ Valid credentials | Token expires: 2024-08-13T12:34:56Z | Scope: transactions:read
 ```
 
 ---
 
-### `gpcli cases list`
+### `globalpayments cases list`
 List all resolved certification cases grouped by pack.
 
 **Options:**
@@ -137,7 +137,7 @@ List all resolved certification cases grouped by pack.
 
 **Example:**
 ```bash
-gpcli cases list --config .gpcli/config.yaml --pack global-core eu-ecommerce
+globalpayments cases list --config .gpcli/config.yaml --pack global-core eu-ecommerce
 # Output:
 # Global Core
 #   Version: 1.0.0 | Region: EMEA
@@ -148,7 +148,7 @@ gpcli cases list --config .gpcli/config.yaml --pack global-core eu-ecommerce
 
 ---
 
-### `gpcli cases show <caseId>`
+### `globalpayments cases show <caseId>`
 Display full resolved case definition (matcher rules + expectations).
 
 **Options:**
@@ -156,13 +156,13 @@ Display full resolved case definition (matcher rules + expectations).
 
 **Example:**
 ```bash
-gpcli cases show global-core:sale-approved --config .gpcli/config.yaml
+globalpayments cases show global-core:sale-approved --config .gpcli/config.yaml
 # Output: Case details with matcher, expectations, tags, evaluator config
 ```
 
 ---
 
-### `gpcli watch`
+### `globalpayments watch`
 Poll for case matches in real-time. Continuously fetches transactions, evaluates all cases, and updates the screen. Useful for exploratory testing and debugging matcher rules.
 
 **Options:**
@@ -192,7 +192,7 @@ Recent transactions:
 
 ---
 
-### `gpcli run`
+### `globalpayments run`
 CI-friendly mode: single polling cycle, exit non-zero if any required cases fail. Use in automated pipelines.
 
 **Options:**
@@ -221,7 +221,7 @@ CI-friendly mode: single polling cycle, exit non-zero if any required cases fail
 
 ---
 
-### `gpcli report`
+### `globalpayments report`
 Display a persisted result JSON file in human-readable format.
 
 **Options:**
@@ -229,7 +229,7 @@ Display a persisted result JSON file in human-readable format.
 
 **Example:**
 ```bash
-gpcli report --input .gpcli/results/2024-08-13T10-32-45Z.json
+globalpayments report --input .gpcli/results/2024-08-13T10-32-45Z.json
 ```
 
 ## Configuration
@@ -496,7 +496,7 @@ jobs:
 - **Solution:**
   1. Verify credentials in GP Developer Portal
   2. Confirm the account has API access enabled
-  3. Try `gpcli auth test --config .gpcli/config.yaml` to debug
+  3. Try `globalpayments auth test --config .gpcli/config.yaml` to debug
 
 ### **Error: `No transactions found`**
 - **Cause:** Poll window is too small, or your integration hasn't submitted transactions yet
@@ -504,7 +504,7 @@ jobs:
   1. Increase `polling.lookbackMinutes` in config (default: 15)
   2. Ensure your integration is actively submitting test transactions
   3. Check that `accountName` in matcher rules matches your GP account
-  4. Run `gpcli doctor` to confirm account access
+  4. Run `globalpayments doctor` to confirm account access
 
 ### **Error: `Ambiguous match` on a case**
 - **Cause:** Multiple transactions match with identical timestamp
@@ -523,14 +523,14 @@ jobs:
 - **Cause:** `.gpcli/` directory lacks write permissions, or another process is using the port
 - **Solution:**
   1. Ensure `.gpcli/` exists and is writable: `mkdir -p .gpcli && chmod 755 .gpcli`
-  2. Check for running gpcli processes: `ps aux | grep gpcli`
+  2. Check for running globalpayments processes: `ps aux | grep globalpayments`
 
 ### **Matcher rules not matching transactions**
 - **Cause:** Matcher fields don't align with actual transaction structure
 - **Solution:**
-  1. Run `gpcli watch` to see recent transactions in real-time
+  1. Run `globalpayments watch` to see recent transactions in real-time
   2. Compare transaction fields to your matcher criteria
-  3. Use `gpcli cases show <caseId>` to review the full case definition
+  3. Use `globalpayments cases show <caseId>` to review the full case definition
   4. Add debug output to custom evaluators if using script mode
 
 ## Programmatic API

@@ -1,5 +1,5 @@
 services:
-  gpcli:
+  globalpayments:
     build: .
     image: globalpayments-cli:local
     working_dir: /workspace

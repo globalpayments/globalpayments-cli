@@ -11,7 +11,7 @@ export function buildCli(): Command {
   const program = new Command();
 
   program
-    .name('gpcli')
+    .name('globalpayments')
     .description('Global Payments certification observer CLI')
     .version('0.1.0');
 

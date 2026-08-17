@@ -83,9 +83,9 @@ export function registerInitCommand(program: Command): void {
         console.log();
         console.log(pc.cyan('Next steps:'));
         console.log(`1. Copy ${pc.cyan('.env.example')} to ${pc.cyan('.env')} and fill in your GP API credentials`);
-        console.log(`2. Run ${pc.yellow('gpcli doctor')} to verify your setup`);
+        console.log(`2. Run ${pc.yellow('globalpayments doctor')} to verify your setup`);
         if (builtinPacks.length > 0) {
-          console.log(`3. Run a cert suite:  ${pc.yellow(`gpcli run --cert ${builtinPacks[0]}`)}`);
+          console.log(`3. Run a cert suite:  ${pc.yellow(`globalpayments run --cert ${builtinPacks[0]}`)}`);
           console.log();
           console.log(pc.cyan('Available bundled cert suites:'));
           for (const id of builtinPacks) {

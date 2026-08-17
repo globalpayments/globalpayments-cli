@@ -1,6 +1,6 @@
 # gp-cli configuration — minimal example
 # Credentials are read from environment variables; this file is optional.
-# Run `gpcli init` to generate a .env.example for your project.
+# Run `globalpayments init` to generate a .env.example for your project.
 
 version: 1
 environment: sandbox   # or: production

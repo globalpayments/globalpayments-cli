@@ -17,7 +17,7 @@ npm run build
 node dist/bin.js --help
 ```
 
-No Node.js/npm? Use Docker instead — skip the `npm install`/`npm run build` steps above and run every `npm run dev -- <command>` in this guide as `docker compose run --rm gpcli <command>` (e.g. `docker compose run --rm gpcli --help`).
+No Node.js/npm? Use Docker instead — skip the `npm install`/`npm run build` steps above and run every `npm run dev -- <command>` in this guide as `docker compose run --rm globalpayments <command>` (e.g. `docker compose run --rm globalpayments --help`).
 
 ## Set Up Credentials
 
@@ -129,7 +129,7 @@ mkdir -p .gpcli
 chmod 755 .gpcli
 
 # Check for running processes
-ps aux | grep gpcli
+ps aux | grep globalpayments
 ```
 
 ## Next Steps
@@ -150,7 +150,7 @@ ps aux | grep gpcli
    npm run dev -- cases show global-core:sale-approved
    ```
 
-4. **Integrate into your CI/CD** — Run gpcli automatically on every deploy
+4. **Integrate into your CI/CD** — Run globalpayments automatically on every deploy
    ```yaml
    # Example: GitHub Actions
    - name: Validate certification
