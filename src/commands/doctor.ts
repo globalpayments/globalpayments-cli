@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { ConfigLoadError, loadObserverConfig } from '../config/load.js';
+import { loadEnvFile } from '../config/env.js';
 import {
   AuthFailureError,
   GpApiAuthProvider,
@@ -18,6 +19,7 @@ export function registerDoctorCommand(program: Command): void {
     .option('--env-file <path>', 'Env file path', '.env')
     .action(async (options: { config?: string; envFile: string }) => {
       try {
+        loadEnvFile(options.envFile);
         console.log(pc.cyan('doctor'), 'Checking configuration and authentication...\n');
 
         // Load config

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { ConfigLoadError, loadObserverConfig } from '../config/load.js';
+import { loadEnvFile } from '../config/env.js';
 import { loadPackGraph } from '../core/pack-loader.js';
 import { resolveActivePacks, resolveInheritedPack } from '../core/pack-resolver.js';
 import {
@@ -33,6 +34,7 @@ export function registerRunCommand(program: Command): void {
     .option('--json', 'Output result as JSON')
     .action(async (options: { config?: string; envFile: string; timeout: string; pack?: string[]; profile?: string; cert?: string; json?: boolean }) => {
       try {
+        loadEnvFile(options.envFile);
         const config = await loadObserverConfig(options.config);
         const timeoutMs = parseDuration(options.timeout);
 

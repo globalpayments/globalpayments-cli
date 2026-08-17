@@ -230,13 +230,13 @@ environment: sandbox  # or: production
 # Required: authentication credentials
 auth:
   mode: app-credentials
-  appId: ${GPCLI_APP_ID}           # from environment or literal
-  appKey: ${GPCLI_APP_KEY}
+  appId: ${GP_API_APP_ID}           # from environment or literal
+  appKey: ${GP_API_APP_KEY}
   apiVersion: 2021-03-22           # GP API version
 
 # Optional: restrict matching to specific account
 account:
-  accountName: ${GPCLI_ACCOUNT_NAME}
+  accountName: ${GP_API_ACCOUNT_NAME}
 
 # Optional: polling tuning
 polling:
@@ -261,10 +261,10 @@ activePacks:
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `GPCLI_APP_ID` | GP API app ID | yes | `ba3b...` |
-| `GPCLI_APP_KEY` | GP API app key | yes | `Afje...` |
-| `GPCLI_ACCOUNT_NAME` | Account to match (optional filter) | no | `my-integration` |
-| `GPCLI_ENVIRONMENT` | GP environment | yes | `sandbox` or `production` |
+| `GP_API_APP_ID` | GP API app ID | yes | `ba3b...` |
+| `GP_API_APP_KEY` | GP API app key | yes | `Afje...` |
+| `GP_API_ACCOUNT_NAME` | Account to match (optional filter) | no | `my-integration` |
+| `GP_API_ENVIRONMENT` | GP environment | yes | `sandbox` or `production` |
 
 All variables are read by `gpcli init`, `gpcli doctor`, and all polling commands.
 
@@ -440,9 +440,9 @@ jobs:
 
       - name: Validate certification
         env:
-          GPCLI_APP_ID: ${{ secrets.GP_APP_ID }}
-          GPCLI_APP_KEY: ${{ secrets.GP_APP_KEY }}
-          GPCLI_ENVIRONMENT: sandbox
+          GP_API_APP_ID: ${{ secrets.GP_APP_ID }}
+          GP_API_APP_KEY: ${{ secrets.GP_APP_KEY }}
+          GP_API_ENVIRONMENT: sandbox
         run: |
           npx @globalpayments/cli init --config .gpcli/config.yaml
           npx @globalpayments/cli run --config .gpcli/config.yaml --timeout 5m --json

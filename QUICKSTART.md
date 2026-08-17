@@ -21,9 +21,9 @@ node dist/bin.js --help
 
 ```bash
 # Option 1: Environment variables (recommended for CI/CD)
-export GPCLI_APP_ID="your-app-id"
-export GPCLI_APP_KEY="your-app-key"
-export GPCLI_ENVIRONMENT="sandbox"
+export GP_API_APP_ID="your-app-id"
+export GP_API_APP_KEY="your-app-key"
+export GP_API_ENVIRONMENT="sandbox"
 
 # Option 2: Config file
 npm run dev -- init
@@ -103,8 +103,8 @@ npm run dev -- report --input .gpcli/results/latest.json
 ### Error: "Invalid credentials"
 ```bash
 # Check your credentials
-echo $GPCLI_APP_ID
-echo $GPCLI_APP_KEY
+echo $GP_API_APP_ID
+echo $GP_API_APP_KEY
 
 # Re-run doctor to debug
 npm run dev -- doctor

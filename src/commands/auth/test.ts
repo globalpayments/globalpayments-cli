@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { ConfigLoadError, loadObserverConfig } from '../../config/load.js';
+import { loadEnvFile } from '../../config/env.js';
 import {
   AuthFailureError,
   GpApiAuthProvider,
@@ -23,6 +24,7 @@ export function registerAuthCommands(program: Command): void {
     .option('--env-file <path>', 'Env file path', '.env')
     .action(async (options: { config: string; envFile: string }) => {
       try {
+        loadEnvFile(options.envFile);
         const config = await loadObserverConfig(options.config);
         const authProvider = new GpApiAuthProvider();
         const token = await authProvider.getToken({

@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 import { clearScreenDown } from 'node:readline';
 import { ConfigLoadError, loadObserverConfig } from '../config/load.js';
+import { loadEnvFile } from '../config/env.js';
 import { loadPackGraph } from '../core/pack-loader.js';
 import { resolveActivePacks, resolveInheritedPack } from '../core/pack-resolver.js';
 import {
@@ -55,6 +56,7 @@ export function registerWatchCommand(program: Command): void {
     .option('--cert <name>', 'Activate a bundled certification suite by name (e.g. global-core, us-retail)')
     .action(async (options: { config?: string; envFile: string; timeout: string; pack?: string[]; profile?: string; cert?: string }) => {
       try {
+        loadEnvFile(options.envFile);
         const config = await loadObserverConfig(options.config);
         const timeoutMs = parseDuration(options.timeout);
 
