@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { loadObserverConfig } from '../../config/load.js';
+import { loadEnvFile } from '../../config/env.js';
 import { loadPackGraph } from '../../core/pack-loader.js';
 import { resolveInheritedPack } from '../../core/pack-resolver.js';
 import type { CertificationCase } from '../../types/domain.js';
@@ -63,8 +64,10 @@ export function registerCasesShowCommand(cases: Command): void {
     .command('show <caseId>')
     .description('Show a fully resolved case definition by namespaced case ID')
     .option('--config <path>', 'Config path', '.gpcli/config.yaml')
-    .action(async (caseId: string, options: { config: string }) => {
+    .option('--env-file <path>', 'Env file path', '.env')
+    .action(async (caseId: string, options: { config: string; envFile: string }) => {
       try {
+        loadEnvFile(options.envFile);
         const config = await loadObserverConfig(options.config);
 
         // Parse namespace

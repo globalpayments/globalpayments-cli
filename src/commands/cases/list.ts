@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { loadObserverConfig } from '../../config/load.js';
+import { loadEnvFile } from '../../config/env.js';
 import { loadPackGraph } from '../../core/pack-loader.js';
 import { resolveActivePacks, resolveInheritedPack } from '../../core/pack-resolver.js';
 import type { CertificationCase } from '../../types/domain.js';
@@ -27,10 +28,12 @@ export function registerCasesCommands(program: Command): void {
     .command('list')
     .description('List resolved cases grouped by pack')
     .option('--config <path>', 'Config path', '.gpcli/config.yaml')
+    .option('--env-file <path>', 'Env file path', '.env')
     .option('--profile <name>', 'Activate profile-defined packs')
     .option('--pack <packId...>', 'Activate additional pack(s)')
-    .action(async (options: { config: string; profile?: string; pack?: string[] }) => {
+    .action(async (options: { config: string; envFile: string; profile?: string; pack?: string[] }) => {
       try {
+        loadEnvFile(options.envFile);
         const config = await loadObserverConfig(options.config);
 
         // Resolve active packs
