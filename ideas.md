@@ -1,0 +1,1 @@
+- add more exhaustive set of test cases for gp api that are flagged as optional / insight-only to cover edge cases not included in standard gp api test suited- web interface (most likely in dev portal) for reduced friction
