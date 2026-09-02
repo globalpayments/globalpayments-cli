@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveActivePacks, resolveInheritedPack } from '../src/core/packs.js';
+import { caseAddress } from '../src/core/ids.js';
 import type { CertificationPack, ObserverConfig } from '../src/types/domain.js';
 
 describe('packs', () => {
@@ -48,7 +49,7 @@ describe('packs', () => {
     expect(resolved).toEqual(['global-core', 'us-retail', 'feature-3ds']);
   });
 
-  it('applies child overrides on inherited case ids and namespaces them', () => {
+  it('applies child overrides on inherited case ids and keeps them local', () => {
     const base: CertificationPack = {
       id: 'global-core',
       name: 'Global Core',
@@ -98,9 +99,13 @@ describe('packs', () => {
 
     const resolved = resolveInheritedPack('us-retail', graph);
     expect(resolved.cases).toHaveLength(2);
-    // Cases should be namespaced with pack ID
-    expect(resolved.cases.find((c) => c.id === 'us-retail:sale-approved')?.name).toBe('Override title');
-    expect(resolved.cases.find((c) => c.id === 'us-retail:refund-approved')).toBeDefined();
+    // Case ids stay local; the pack-qualified address is derived via caseAddress().
+    expect(resolved.cases.find((c) => c.id === 'sale-approved')?.name).toBe('Override title');
+    expect(resolved.cases.find((c) => c.id === 'refund-approved')).toBeDefined();
+    expect(resolved.cases.map((c) => caseAddress(resolved.id, c.id)).sort()).toEqual([
+      'us-retail:refund-approved',
+      'us-retail:sale-approved'
+    ]);
     expect(resolved.metadata).toEqual({ region: 'global', channel: 'card-present' });
   });
 
@@ -225,8 +230,8 @@ describe('packs', () => {
 
     const resolved = resolveInheritedPack('child', graph);
     expect(resolved.cases).toHaveLength(2);
-    const caseA = resolved.cases.find((c) => c.id === 'child:case-a');
-    const caseB = resolved.cases.find((c) => c.id === 'child:case-b');
+    const caseA = resolved.cases.find((c) => c.id === 'case-a');
+    const caseB = resolved.cases.find((c) => c.id === 'case-b');
     expect(caseA?.name).toBe('Case A Override');
     expect(caseA?.required).toBe(false);
     expect(caseB?.name).toBe('Case B');

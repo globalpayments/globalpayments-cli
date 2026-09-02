@@ -1,4 +1,5 @@
 import { latestMatch } from './matching.js';
+import { caseAddress } from './ids.js';
 import type {
   CaseEvaluationResult,
   CertificationCase,
@@ -73,7 +74,7 @@ export function evaluateCase(
   matches: TransactionRecord[],
   evaluators: Record<string, EvaluatorModule>
 ): CaseEvaluationResult {
-  const namespacedCaseId = `${pack.id}:${caze.id}`;
+  const namespacedCaseId = caseAddress(pack.id, caze.id);
   const latest = latestMatch(matches);
 
   const evaluatorName = resolveEvaluatorName(pack, caze);
