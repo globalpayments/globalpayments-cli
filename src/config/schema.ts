@@ -4,10 +4,16 @@ export const profileSchema = z.object({
   packs: z.array(z.string()).min(1)
 });
 
+// Credential *presence* is deliberately not enforced here. Loading config means
+// "this configuration is structurally valid", not "this machine can authenticate".
+// Requiring non-empty credentials at parse time made every offline discovery
+// command (`packs list`, `cases list`, `cases show`) fail without credentials and
+// report it as E_CONFIG_INVALID. Presence is enforced at the point of use, in
+// createSession(), which raises E_AUTH_MISSING_CREDENTIALS instead.
 export const authConfigSchema = z.object({
   mode: z.literal('app-credentials'),
-  appId: z.string().min(1),
-  appKey: z.string().min(1),
+  appId: z.string().default(''),
+  appKey: z.string().default(''),
   apiVersion: z.string().min(1).default('2021-03-22')
 });
 
@@ -78,6 +84,7 @@ export const caseMatcherSchema = z.object({
 export const caseSchema = z.object({
   id: z.string(),
   name: z.string(),
+  scenario: z.string().optional(),
   required: z.boolean(),
   tags: z.array(z.string()).optional(),
   mode: z.enum(['latest', 'sequence', 'aggregate']).optional(),
@@ -126,4 +133,3 @@ export const packSchema = z.object({
     channel: z.string().optional()
   }).optional()
 });
-

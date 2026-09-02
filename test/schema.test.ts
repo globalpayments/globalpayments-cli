@@ -53,6 +53,7 @@ describe('schema validation', () => {
     const caseResult = caseSchema.safeParse({
       id: 'sale-approved',
       name: 'Sale approved',
+      scenario: 'Customer submits an approved sale.',
       required: true,
       matcher: {
         referencePrefix: 'cert-sale-'
