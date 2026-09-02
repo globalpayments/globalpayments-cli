@@ -86,6 +86,7 @@ export interface CaseEvaluatorConfig {
 export interface CertificationCase {
   id: string;
   name: string;
+  scenario?: string;
   required: boolean;
   tags?: string[];
   mode?: CaseMode;
