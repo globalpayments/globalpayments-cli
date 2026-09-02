@@ -1,6 +1,6 @@
 import { EXIT_CODES, type ExitCode } from './exit-codes.js';
 import type { SerializedError } from './errors.js';
-import { GpCliError } from './errors.js';
+import { GlobalPaymentsError } from './errors.js';
 import { CLI_VERSION, ENVELOPE_SCHEMA_VERSION } from './version.js';
 
 /**
@@ -49,10 +49,10 @@ export interface Envelope<T = unknown> {
 }
 
 export interface EnvelopeInput<T> {
-  /** Dotted command path, e.g. `run`, `cases.list`. Matches `gpcli explain` ids. */
+  /** Dotted command path, e.g. `run`, `cases.list`. Matches `globalpayments explain` ids. */
   command: string;
   data?: T;
-  error?: GpCliError;
+  error?: GlobalPaymentsError;
   /** Overrides the exit code for successful-but-failing outcomes. Must be 0 when no error. */
   exitCode?: ExitCode;
   warnings?: Warning[];

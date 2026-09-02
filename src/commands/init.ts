@@ -8,7 +8,7 @@ import { listBuiltinPackIds } from '../core/builtin-packs.js';
 import { DEFAULT_CONFIG_PATH } from '../config/load.js';
 
 const STARTER_ENV = `# Global Payments API credentials.
-# gpcli reads these from the environment; a .env file is loaded automatically.
+# globalpayments reads these from the environment; a .env file is loaded automatically.
 GP_API_APP_ID=your_app_id_here
 GP_API_APP_KEY=your_app_key_here
 
@@ -22,10 +22,10 @@ GP_API_APP_KEY=your_app_key_here
 # GP_API_VERSION=2021-03-22
 `;
 
-const STARTER_CONFIG = `# gpcli configuration — entirely optional.
+const STARTER_CONFIG = `# globalpayments configuration — entirely optional.
 # Credentials come from the environment, so this file is only needed to customise
 # polling, output, or to register your own certification packs.
-# Run \`gpcli explain --json\` for the full contract.
+# Run \`globalpayments explain --json\` for the full contract.
 
 version: 1
 environment: sandbox   # or: production
@@ -80,7 +80,7 @@ export function registerInitCommand(program: Command): void {
     .command('init')
     .description('Scaffold a starter .env.example and, optionally, an annotated config file')
     .option('--dir <path>', 'Directory to write into', '.')
-    .option('--with-config', 'Also write an annotated gpcli.config.yaml')
+    .option('--with-config', 'Also write an annotated globalpayments.config.yaml')
     .option('--json', 'Emit a single JSON envelope on stdout and nothing else')
     .action(async (options: { dir: string; withConfig?: boolean; json?: boolean }) => {
       await runCommand<InitData>('init', { json: options.json }, async () => {
@@ -89,7 +89,7 @@ export function registerInitCommand(program: Command): void {
         const files: InitFileResult[] = [await writeIfAbsent(path.join(options.dir, '.env.example'), STARTER_ENV)];
 
         if (options.withConfig) {
-          files.push(await writeIfAbsent(path.join(options.dir, 'gpcli.config.yaml'), STARTER_CONFIG));
+          files.push(await writeIfAbsent(path.join(options.dir, 'globalpayments.config.yaml'), STARTER_CONFIG));
         }
 
         const packsAvailable = await listBuiltinPackIds();
@@ -107,10 +107,10 @@ export function registerInitCommand(program: Command): void {
               reason: 'Copy the example to .env and fill in your GP API credentials.',
               command: `cp ${path.join(options.dir, '.env.example')} ${path.join(options.dir, '.env')}`
             },
-            { reason: 'Confirm credentials and connectivity.', command: 'gpcli doctor --json' },
+            { reason: 'Confirm credentials and connectivity.', command: 'globalpayments doctor --json' },
             {
               reason: 'Evaluate a bundled certification suite.',
-              command: `gpcli run --cert ${packsAvailable[0] ?? '<packId>'} --json`
+              command: `globalpayments run --cert ${packsAvailable[0] ?? '<packId>'} --json`
             }
           ]
         };

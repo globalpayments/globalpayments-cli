@@ -29,7 +29,7 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
   if (view.verdict === 'passed') {
     actions.push({
       reason: 'Re-read the persisted result later without re-running.',
-      command: 'gpcli report --json'
+      command: 'globalpayments report --json'
     });
     return actions;
   }
@@ -40,27 +40,27 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
   if (view.observation.transactionsObserved === 0) {
     actions.push({
       reason:
-        'No transactions were observed in the polling window. gpcli only observes; send the transactions this suite expects, then rerun.',
-      command: `gpcli cases list --cert ${pack} --json`
+        'No transactions were observed in the polling window. globalpayments only observes; send the transactions this suite expects, then rerun.',
+      command: `globalpayments cases list --cert ${pack} --json`
     });
   } else if (pending.length > 0) {
     actions.push({
       reason: `${pending.length} case(s) saw no matching transaction. Compare their matchers against what you sent.`,
-      command: `gpcli cases show ${pending[0]!.namespacedCaseId} --json`
+      command: `globalpayments cases show ${pending[0]!.namespacedCaseId} --json`
     });
   }
 
   if (failed.length > 0) {
     actions.push({
       reason: `${failed.length} case(s) matched a transaction but violated their expectation. Inspect the first one.`,
-      command: `gpcli cases show ${failed[0]!.namespacedCaseId} --json`
+      command: `globalpayments cases show ${failed[0]!.namespacedCaseId} --json`
     });
   }
 
   if (view.observation.timedOut) {
     actions.push({
       reason: 'The run hit its timeout before all required cases passed. Watch live instead of polling once.',
-      command: `gpcli watch --cert ${pack}`
+      command: `globalpayments watch --cert ${pack}`
     });
   }
 
@@ -103,7 +103,7 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
 
   if (view.observation.transactionsObserved === 0) {
     log();
-    log(pc.yellow('No transactions were observed. gpcli observes only; it never creates transactions.'));
+    log(pc.yellow('No transactions were observed. globalpayments observes only; it never creates transactions.'));
   }
   if (view.observation.timedOut) {
     log(pc.yellow(`Timed out after ${formatDuration(view.observation.elapsedMs)}; results are partial.`));

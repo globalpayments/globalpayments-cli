@@ -2,11 +2,11 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 import { readFile } from 'node:fs/promises';
 import { runCommand } from '../contract/emit.js';
-import { GpCliError, ERROR_CODES } from '../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
 import { RESULT_SCHEMA_VERSION } from '../contract/version.js';
 import type { RunResult } from '../types/domain.js';
 
-const DEFAULT_RESULT_PATH = '.gpcli/results/latest.json';
+const DEFAULT_RESULT_PATH = '.globalpayments/results/latest.json';
 
 export interface ReportData extends RunResult {
   sourcePath: string;
@@ -62,7 +62,7 @@ export function registerReportCommand(program: Command): void {
         try {
           raw = await readFile(options.input, 'utf8');
         } catch (error) {
-          throw new GpCliError(ERROR_CODES.E_RESULT_NOT_FOUND, `No result artifact at ${options.input}.`, {
+          throw new GlobalPaymentsError(ERROR_CODES.E_RESULT_NOT_FOUND, `No result artifact at ${options.input}.`, {
             details: { path: options.input },
             cause: error
           });
@@ -72,8 +72,8 @@ export function registerReportCommand(program: Command): void {
         try {
           parsed = JSON.parse(raw) as RunResult;
         } catch (error) {
-          throw new GpCliError(ERROR_CODES.E_INTERNAL, `Result artifact at ${options.input} is not valid JSON.`, {
-            remediation: 'Delete the corrupt artifact and produce a new one with `gpcli run`.',
+          throw new GlobalPaymentsError(ERROR_CODES.E_INTERNAL, `Result artifact at ${options.input} is not valid JSON.`, {
+            remediation: 'Delete the corrupt artifact and produce a new one with `globalpayments run`.',
             details: { path: options.input },
             cause: error
           });
@@ -85,7 +85,7 @@ export function registerReportCommand(program: Command): void {
             : [
                 {
                   code: 'W_RESULT_SCHEMA_MISMATCH',
-                  message: `Artifact schemaVersion ${parsed.schemaVersion ?? 'missing'} does not match the expected ${RESULT_SCHEMA_VERSION}. Fields may be absent. Regenerate with \`gpcli run\`.`
+                  message: `Artifact schemaVersion ${parsed.schemaVersion ?? 'missing'} does not match the expected ${RESULT_SCHEMA_VERSION}. Fields may be absent. Regenerate with \`globalpayments run\`.`
                 }
               ];
 

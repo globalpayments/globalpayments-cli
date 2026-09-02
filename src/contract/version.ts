@@ -15,7 +15,7 @@ export const CLI_VERSION = '0.1.0';
 export const ENVELOPE_SCHEMA_VERSION = 1;
 
 /**
- * Version of the persisted run-result artifact written to `.gpcli/results/`.
+ * Version of the persisted run-result artifact written to `.globalpayments/results/`.
  * Independent of the envelope version: artifacts outlive invocations.
  */
 export const RESULT_SCHEMA_VERSION = 1;

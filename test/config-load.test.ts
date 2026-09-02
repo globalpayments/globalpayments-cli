@@ -14,8 +14,8 @@ import {
 
 describe('config loader', () => {
   it('loads config with environment interpolation and absolute packs path', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gpcli-config-'));
-    const configDir = path.join(root, '.gpcli');
+    const root = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-config-'));
+    const configDir = path.join(root, '.globalpayments');
     await mkdir(configDir, { recursive: true });
 
     const configPath = path.join(configDir, 'config.yaml');
@@ -65,13 +65,13 @@ describe('config loader', () => {
   });
 
   it('resolves default config path and pack paths', () => {
-    expect(resolveConfigPath()).toBe('.gpcli/config.yaml');
+    expect(resolveConfigPath()).toBe('.globalpayments/config.yaml');
     expect(resolvePackPath('/tmp/packs', 'global-core')).toBe(path.join('/tmp/packs', 'global-core', 'pack.yaml'));
     expect(resolvePackCasesDir('/tmp/packs', 'global-core', 'cases')).toBe(path.join('/tmp/packs', 'global-core', 'cases'));
   });
 
   it('loads pack and case yaml files with the new schema shape', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gpcli-pack-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-pack-'));
     const packDir = path.join(root, 'packs', 'global-core');
     const casesDir = path.join(packDir, 'cases');
     await mkdir(casesDir, { recursive: true });
@@ -117,7 +117,7 @@ describe('config loader', () => {
   });
 
   it('throws ConfigLoadError for malformed YAML', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gpcli-bad-yaml-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-bad-yaml-'));
     const configPath = path.join(root, 'config.yaml');
     await writeFile(configPath, 'version: 1\nenvironment: sandbox\nauth: [', 'utf8');
 
@@ -135,7 +135,7 @@ describe('config loader', () => {
   });
 
   it('throws ConfigLoadError for schema validation issues', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gpcli-bad-schema-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-bad-schema-'));
     const configPath = path.join(root, 'config.yaml');
     await writeFile(configPath, ['version: 1', 'environment: sandbox', 'auth: {}'].join('\n'), 'utf8');
 

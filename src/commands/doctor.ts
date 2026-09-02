@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 import { existsSync } from 'node:fs';
 import { runCommand } from '../contract/emit.js';
-import { GpCliError, ERROR_CODES, toGpCliError, type ErrorCode } from '../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES, toGlobalPaymentsError, type ErrorCode } from '../contract/errors.js';
 import { DEFAULT_CONFIG_PATH, loadObserverConfig } from '../config/load.js';
 import { loadEnvFile } from '../config/env.js';
 import { GpApiAuthProvider, environmentBaseUrl } from '../gpapi/auth.js';
@@ -35,12 +35,12 @@ function pass(id: string, title: string, detail: string): DoctorCheck {
   return { id, title, status: 'pass', detail };
 }
 
-function fail(id: string, title: string, detail: string, error: GpCliError): DoctorCheck {
+function fail(id: string, title: string, detail: string, error: GlobalPaymentsError): DoctorCheck {
   return { id, title, status: 'fail', detail, errorCode: error.code, remediation: error.remediation };
 }
 
 function renderDoctor(data: DoctorData): void {
-  console.log(pc.bold('gpcli readiness'));
+  console.log(pc.bold('globalpayments readiness'));
   console.log();
   for (const check of data.checks) {
     const icon = check.status === 'pass' ? pc.green('✓') : check.status === 'fail' ? pc.red('✗') : pc.gray('–');
@@ -99,7 +99,7 @@ export function registerDoctorCommand(program: Command): void {
             )
           );
         } catch (error) {
-          const gpError = toGpCliError(error);
+          const gpError = toGlobalPaymentsError(error);
           checks.push(fail('config', 'Configuration resolved', gpError.message, gpError));
           return {
             data: {
@@ -121,7 +121,7 @@ export function registerDoctorCommand(program: Command): void {
         if (!config.auth.appKey) missing.push('GP_API_APP_KEY');
 
         if (missing.length > 0) {
-          const gpError = new GpCliError(
+          const gpError = new GlobalPaymentsError(
             ERROR_CODES.E_AUTH_MISSING_CREDENTIALS,
             `Missing required credential(s): ${missing.join(', ')}.`,
             { details: { missing } }
@@ -159,7 +159,7 @@ export function registerDoctorCommand(program: Command): void {
             )
           );
         } catch (error) {
-          const gpError = toGpCliError(error);
+          const gpError = toGlobalPaymentsError(error);
           checks.push(fail('auth', 'GP API token exchange', gpError.message, gpError));
           return {
             data: {
@@ -193,7 +193,7 @@ export function registerDoctorCommand(program: Command): void {
               'packs',
               'Certification suites available',
               `Bundled packs directory is missing at ${resolveBuiltinPacksDir()}.`,
-              new GpCliError(
+              new GlobalPaymentsError(
                 ERROR_CODES.E_INTERNAL,
                 'The installed package is incomplete: its bundled certification suites are missing.',
                 { remediation: 'Reinstall @globalpayments/cli, or run `npm run build` if working from source.' }
@@ -229,7 +229,7 @@ export function registerDoctorCommand(program: Command): void {
           return {
             data,
             render: renderDoctor,
-            error: new GpCliError(
+            error: new GlobalPaymentsError(
               (first.errorCode ?? ERROR_CODES.E_INTERNAL) as ErrorCode,
               `Readiness check failed: ${first.title}. ${first.detail}`,
               { ...(first.remediation ? { remediation: first.remediation } : {}) }
@@ -243,11 +243,11 @@ export function registerDoctorCommand(program: Command): void {
           nextActions: [
             {
               reason: 'Inspect what a suite asserts before running it.',
-              command: `gpcli cases list --cert ${packsAvailable[0] ?? '<packId>'} --json`
+              command: `globalpayments cases list --cert ${packsAvailable[0] ?? '<packId>'} --json`
             },
             {
               reason: 'Evaluate transactions against a suite.',
-              command: `gpcli run --cert ${packsAvailable[0] ?? '<packId>'} --json`
+              command: `globalpayments run --cert ${packsAvailable[0] ?? '<packId>'} --json`
             }
           ]
         };

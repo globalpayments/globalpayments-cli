@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { runCommand } from '../../contract/emit.js';
-import { GpCliError, ERROR_CODES } from '../../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../../contract/errors.js';
 import { loadObserverConfig } from '../../config/load.js';
 import { loadEnvFile } from '../../config/env.js';
 import { GpApiAuthProvider, environmentBaseUrl } from '../../gpapi/auth.js';
@@ -34,7 +34,7 @@ export function registerAuthCommands(program: Command): void {
         const config = await loadObserverConfig(options.config);
 
         if (!config.auth.appId || !config.auth.appKey) {
-          throw new GpCliError(
+          throw new GlobalPaymentsError(
             ERROR_CODES.E_AUTH_MISSING_CREDENTIALS,
             'GP API credentials are not configured (auth.appId / auth.appKey are empty).'
           );
@@ -72,7 +72,7 @@ export function registerAuthCommands(program: Command): void {
             );
           },
           nextActions: [
-            { reason: 'Run the full readiness report.', command: 'gpcli doctor --json' }
+            { reason: 'Run the full readiness report.', command: 'globalpayments doctor --json' }
           ]
         };
       });

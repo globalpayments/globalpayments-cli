@@ -5,7 +5,6 @@
 ## Install
 
 ```bash
-# Clone and install
 git clone https://github.com/globalpayments/globalpayments-cli.git
 cd globalpayments-cli
 npm install
@@ -38,7 +37,7 @@ npm run dev -- doctor
 ```
 
 ```
-gpcli readiness
+globalpayments readiness
 
   ✓ Env file loaded
       Loaded .env.
@@ -73,13 +72,107 @@ npm run dev -- cases show global-core:basic-sale-approved
 
 ## Run a certification
 
-3. **Try all CLI commands** — Get familiar with the full tool
-   ```bash
-   npm run dev -- cases list --pack global-core
-   npm run dev -- cases show global-core:sale-approved
-   ```
+`globalpayments` is an **observer**: it never creates transactions. Send the transactions the
+suite expects from your integration, then let `globalpayments` judge them.
 
-4. **Integrate into your CI/CD** — Run globalpayments automatically on every deploy
+```bash
+# CI mode: evaluate once, persist, exit non-zero if required cases fail
+npm run dev -- run --cert global-core --timeout 5m
+
+# Live mode: poll continuously with a real-time UI
+npm run dev -- watch --cert global-core
+```
+
+## Review results
+
+```bash
+npm run dev -- report
+```
+
+Results are persisted to `.globalpayments/results/latest.json` and archived under
+`.globalpayments/results/history/`.
+
+## Automating it
+
+Every command accepts `--json` and emits a single envelope on stdout:
+
+```bash
+npm run dev -- run --cert global-core --json
+```
+
+```jsonc
+{
+  "ok": false,
+  "exitCode": 1,
+  "data": { "verdict": "failed", "required": { "total": 1, "passing": 0, "failing": 1 } },
+  "error": { "code": "E_CERT_REQUIRED_CASES_FAILING", "remediation": "..." },
+  "nextActions": [{ "reason": "...", "command": "globalpayments cases list --cert global-core --json" }]
+}
+```
+
+For the complete contract in one call:
+
+```bash
+npm run dev -- explain --json
+```
+
+See [AGENTS.md](AGENTS.md) for the full automation guide.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | Required cases not passing (a certification result, not a tool error) |
+| 2 | Bad invocation |
+| 3 | Config problem |
+| 4 | Auth problem |
+| 5 | Network problem (retryable) |
+| 6 | Unknown pack, case, or result |
+| 7 | Internal bug |
+
+## Useful commands
+
+| Command | Purpose |
+|---|---|
+| `npm test` | Run the test suite |
+| `npm run typecheck` | Type-check |
+| `npm run dev -- explain` | Full CLI contract |
+| `npm run dev -- doctor --json` | Structured readiness report |
+| `npm run dev -- packs list` | Available certification suites |
+
+## Common issues
+
+### Everything is `pending`
+
+This is the normal first result and usually not an error. Check
+`data.observation.transactionsObserved`:
+
+- **`0`** — nothing was in the polling window. Send the transactions the suite expects,
+  or widen `polling.lookbackMinutes` in your config.
+- **`> 0`** — transactions arrived but none matched. Compare the `matcher` from
+  `globalpayments cases show <address>` against what you actually sent.
+
+### `E_AUTH_INVALID_CREDENTIALS` (exit 4)
+
+```bash
+echo $GP_API_APP_ID          # confirm the values are present
+npm run dev -- doctor --json # isolate which check fails
+```
+
+Confirm `GP_ENVIRONMENT` matches the environment the credentials belong to.
+
+### `E_CONFIG_READ` (exit 3)
+
+You passed `--config <path>` and the file does not exist. Either fix the path or drop
+the flag entirely and configure from environment variables.
+
+## Next steps
+
+1. **[README.md](README.md)** — all commands, config options, and case definitions
+2. **[AGENTS.md](AGENTS.md)** — the machine contract and internal architecture
+3. **[CONTRIBUTING.md](CONTRIBUTING.md)** — adding cases or modifying the tool
+4. **Integrate into CI:**
    ```yaml
    - name: Validate certification
      run: npx @globalpayments/cli run --cert global-core --timeout 5m --json

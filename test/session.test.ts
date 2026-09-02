@@ -27,7 +27,7 @@ const config = {
   matching: { defaultStrategy: 'composite', requireReference: false, timeSkewSeconds: 60 },
   output: { format: 'terminal', saveJson: true, saveJUnit: false },
   packs: {},
-  configPath: '.gpcli/config.yaml'
+  configPath: '.globalpayments/config.yaml'
 } as unknown as ResolvedObserverConfig;
 
 function buildPack(cases: Array<{ id: string; required: boolean }>): CertificationPack {
@@ -141,7 +141,7 @@ describe('session: discovery works without credentials', () => {
   const original = { id: process.env['GP_API_APP_ID'], key: process.env['GP_API_APP_KEY'] };
   // An empty env file, so a real .env in the working tree cannot leak credentials
   // into these assertions.
-  const emptyEnvFile = path.join(os.tmpdir(), 'gpcli-empty.env');
+  const emptyEnvFile = path.join(os.tmpdir(), 'globalpayments-empty.env');
 
   beforeEach(() => {
     writeFileSync(emptyEnvFile, '');

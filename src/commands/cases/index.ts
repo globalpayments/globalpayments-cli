@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { runCommand } from '../../contract/emit.js';
-import { GpCliError, ERROR_CODES } from '../../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../../contract/errors.js';
 import { resolveSelection } from '../../core/session.js';
 import { caseAddress, parseCaseAddress } from '../../core/ids.js';
 import type { CertificationCase } from '../../types/domain.js';
@@ -160,11 +160,11 @@ export function registerCasesCommands(program: Command): void {
           nextActions: [
             {
               reason: 'Read the matcher and expectation behind a specific case.',
-              command: `gpcli cases show ${all[0]?.address ?? '<packId>:<caseId>'} --json`
+              command: `globalpayments cases show ${all[0]?.address ?? '<packId>:<caseId>'} --json`
             },
             {
               reason: 'Evaluate these cases against observed transactions.',
-              command: `gpcli run --cert ${selection.activePacks[0]} --json`
+              command: `globalpayments run --cert ${selection.activePacks[0]} --json`
             }
           ]
         };
@@ -182,11 +182,11 @@ export function registerCasesCommands(program: Command): void {
       await runCommand<CaseDetail>('cases.show', { json: options.json }, async () => {
         const parsed = parseCaseAddress(address);
         if (!parsed) {
-          throw new GpCliError(
+          throw new GlobalPaymentsError(
             ERROR_CODES.E_USAGE,
             `"${address}" is not a case address. Expected the form <packId>:<caseId>.`,
             {
-              remediation: 'Run `gpcli cases list --json` and copy an `address` value verbatim.',
+              remediation: 'Run `globalpayments cases list --json` and copy an `address` value verbatim.',
               details: { received: address }
             }
           );
@@ -200,7 +200,7 @@ export function registerCasesCommands(program: Command): void {
 
         const caze = selection.caseIndex.get(parsed.address);
         if (!caze) {
-          throw new GpCliError(ERROR_CODES.E_CASE_NOT_FOUND, `No case "${parsed.address}" in pack "${parsed.packId}".`, {
+          throw new GlobalPaymentsError(ERROR_CODES.E_CASE_NOT_FOUND, `No case "${parsed.address}" in pack "${parsed.packId}".`, {
             details: {
               packId: parsed.packId,
               available: [...selection.caseIndex.keys()].slice(0, 50)
@@ -221,7 +221,7 @@ export function registerCasesCommands(program: Command): void {
           nextActions: [
             {
               reason: 'Evaluate this pack against observed transactions.',
-              command: `gpcli run --cert ${parsed.packId} --json`
+              command: `globalpayments run --cert ${parsed.packId} --json`
             }
           ]
         };

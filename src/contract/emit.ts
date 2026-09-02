@@ -1,6 +1,6 @@
 import pc from 'picocolors';
 import { buildEnvelope, type Envelope, type NextAction, type Warning } from './envelope.js';
-import { GpCliError, toGpCliError } from './errors.js';
+import { GlobalPaymentsError, toGlobalPaymentsError } from './errors.js';
 import { EXIT_CODES, exitCodeName, type ExitCode } from './exit-codes.js';
 
 /**
@@ -23,7 +23,7 @@ export interface CommandOutcome<T> {
    * A non-zero outcome that is a *result*, not a tool failure — e.g. required cases
    * failing. Must be paired with an error so the ok/exitCode invariant holds.
    */
-  error?: GpCliError;
+  error?: GlobalPaymentsError;
 }
 
 export interface EmitOptions {
@@ -40,7 +40,7 @@ function write(stream: NodeJS.WritableStream, text: string): void {
  * Render a failure for human eyes: code first (so it is greppable), then the
  * message, then the remediation, then any structured detail.
  */
-export function renderErrorText(error: GpCliError, stderr: NodeJS.WritableStream): void {
+export function renderErrorText(error: GlobalPaymentsError, stderr: NodeJS.WritableStream): void {
   write(stderr, `${pc.red('✗')} ${pc.bold(error.code)}  ${error.message}\n`);
   write(stderr, `  ${pc.gray('fix:')} ${error.remediation}\n`);
   if (error.details && Object.keys(error.details).length > 0) {
@@ -60,7 +60,7 @@ function renderNextActionsText(actions: NextAction[], stdout: NodeJS.WritableStr
  * The single output sink for the entire CLI.
  *
  * In JSON mode this writes exactly one JSON document to stdout and nothing else —
- * the property that makes gpcli safely pipeable into an automated caller. In text
+ * the property that makes globalpayments safely pipeable into an automated caller. In text
  * mode it delegates to the command's renderer and prints errors to stderr.
  *
  * Sets `process.exitCode` from the envelope so `ok` and the process status can never
@@ -123,19 +123,19 @@ export async function runCommand<T>(
     const outcome = await handler();
     return emit(command, outcome, options);
   } catch (error) {
-    const gpError = toGpCliError(error);
+    const gpError = toGlobalPaymentsError(error);
     return emit<T>(command, { error: gpError, nextActions: nextActionsForError(gpError) }, options);
   }
 }
 
 /** Suggest a recovery command based on the error class. */
-export function nextActionsForError(error: GpCliError): NextAction[] {
+export function nextActionsForError(error: GlobalPaymentsError): NextAction[] {
   switch (error.code) {
     case 'E_NO_PACKS_SELECTED':
     case 'E_PACK_NOT_FOUND':
-      return [{ reason: 'List every pack this build can run.', command: 'gpcli packs list --json' }];
+      return [{ reason: 'List every pack this build can run.', command: 'globalpayments packs list --json' }];
     case 'E_CASE_NOT_FOUND':
-      return [{ reason: 'List every resolved case ID.', command: 'gpcli cases list --json' }];
+      return [{ reason: 'List every resolved case ID.', command: 'globalpayments cases list --json' }];
     case 'E_AUTH_MISSING_CREDENTIALS':
     case 'E_AUTH_INVALID_CREDENTIALS':
     case 'E_AUTH_FAILED':
@@ -143,15 +143,15 @@ export function nextActionsForError(error: GpCliError): NextAction[] {
     case 'E_CONFIG_READ':
     case 'E_CONFIG_PARSE':
     case 'E_CONFIG_INVALID':
-      return [{ reason: 'Diagnose configuration and credentials check by check.', command: 'gpcli doctor --json' }];
+      return [{ reason: 'Diagnose configuration and credentials check by check.', command: 'globalpayments doctor --json' }];
     case 'E_NETWORK':
-      return [{ reason: 'Network failures are usually transient; re-verify connectivity.', command: 'gpcli doctor --json' }];
+      return [{ reason: 'Network failures are usually transient; re-verify connectivity.', command: 'globalpayments doctor --json' }];
     case 'E_RESULT_NOT_FOUND':
-      return [{ reason: 'Produce a result artifact before reading one.', command: 'gpcli packs list --json' }];
+      return [{ reason: 'Produce a result artifact before reading one.', command: 'globalpayments packs list --json' }];
     case 'E_USAGE':
     case 'E_INTERNAL':
     default:
-      return [{ reason: 'Inspect the full machine-readable interface contract.', command: 'gpcli explain --json' }];
+      return [{ reason: 'Inspect the full machine-readable interface contract.', command: 'globalpayments explain --json' }];
   }
 }
 

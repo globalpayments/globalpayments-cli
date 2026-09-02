@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { runCommand } from '../contract/emit.js';
-import { GpCliError, ERROR_CODES } from '../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
 import { listBuiltinPackIds, resolveBuiltinPacksDir } from '../core/builtin-packs.js';
 import { loadPackGraph } from '../core/pack-loader.js';
 import { resolveInheritedPack } from '../core/pack-resolver.js';
@@ -136,11 +136,11 @@ export function registerPacksCommands(program: Command): void {
           nextActions: [
             {
               reason: 'Inspect what a suite asserts before running it.',
-              command: `gpcli cases list --cert ${summaries[0]?.packId ?? '<packId>'} --json`
+              command: `globalpayments cases list --cert ${summaries[0]?.packId ?? '<packId>'} --json`
             },
             {
               reason: 'Evaluate a suite against observed transactions.',
-              command: `gpcli run --cert ${summaries[0]?.packId ?? '<packId>'} --json`
+              command: `globalpayments run --cert ${summaries[0]?.packId ?? '<packId>'} --json`
             }
           ]
         };
@@ -149,7 +149,7 @@ export function registerPacksCommands(program: Command): void {
 
   packs
     .command('show')
-    .argument('<packId>', 'Pack id, as listed by `gpcli packs list`')
+    .argument('<packId>', 'Pack id, as listed by `globalpayments packs list`')
     .description('Show one pack with its fully resolved case list')
     .option('--config <path>', 'Config file path. Omit to configure entirely from environment variables.')
     .option('--env-file <path>', 'Env file to load before running', '.env')
@@ -161,7 +161,7 @@ export function registerPacksCommands(program: Command): void {
         const bundled = new Set(await listBuiltinPackIds());
 
         if (!bundled.has(packId) && !config.packs?.directory) {
-          throw new GpCliError(ERROR_CODES.E_PACK_NOT_FOUND, `Pack "${packId}" not found.`, {
+          throw new GlobalPaymentsError(ERROR_CODES.E_PACK_NOT_FOUND, `Pack "${packId}" not found.`, {
             details: { available: [...bundled] }
           });
         }
@@ -172,7 +172,7 @@ export function registerPacksCommands(program: Command): void {
           data: { ...summary, cases } satisfies PackDetailData,
           render: renderDetail,
           nextActions: [
-            { reason: 'Evaluate this pack against observed transactions.', command: `gpcli run --cert ${packId} --json` }
+            { reason: 'Evaluate this pack against observed transactions.', command: `globalpayments run --cert ${packId} --json` }
           ]
         };
       });

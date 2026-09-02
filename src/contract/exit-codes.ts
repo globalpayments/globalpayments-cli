@@ -1,7 +1,7 @@
 /**
  * Deterministic exit-code taxonomy.
  *
- * Every gpcli invocation terminates with exactly one of these codes. The code is
+ * Every globalpayments invocation terminates with exactly one of these codes. The code is
  * the cheapest, most reliable signal available to an automated caller: it can be
  * branched on without parsing a single byte of output.
  *
@@ -23,14 +23,14 @@ export const EXIT_CODES = {
   NETWORK: 5,
   /** A named resource (pack, case, result artifact) does not exist. */
   NOT_FOUND: 6,
-  /** An unexpected internal error. Always a bug in gpcli. */
+  /** An unexpected internal error. Always a bug in globalpayments. */
   INTERNAL: 7
 } as const;
 
 export type ExitCodeName = keyof typeof EXIT_CODES;
 export type ExitCode = (typeof EXIT_CODES)[ExitCodeName];
 
-/** Human-readable meaning for each exit code, surfaced by `gpcli explain`. */
+/** Human-readable meaning for each exit code, surfaced by `globalpayments explain`. */
 export const EXIT_CODE_DESCRIPTIONS: Record<ExitCodeName, string> = {
   OK: 'Success. The command ran and all of its assertions held.',
   CERT_FAILED:

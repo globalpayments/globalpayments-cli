@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Operating guide for automated agents working **on** or **with** `gpcli`.
+Operating guide for automated agents working **on** or **with** `globalpayments`.
 
 Humans: see [README.md](README.md). This file is the contract, stated once.
 
@@ -8,7 +8,7 @@ Humans: see [README.md](README.md). This file is the contract, stated once.
 
 ## 1. What this tool is
 
-`gpcli` is an **observer**. It never creates transactions.
+`globalpayments` is an **observer**. It never creates transactions.
 
 It polls the Global Payments API for transactions *you have already sent*, matches
 them against certification cases, and reports whether each case is satisfied.
@@ -22,7 +22,7 @@ send the transaction the case describes — not to change the tool.
 ## 2. The one command to run first
 
 ```bash
-gpcli explain --json
+globalpayments explain --json
 ```
 
 This returns the complete interface contract in one call: every command and flag,
@@ -59,7 +59,7 @@ into a parser.
     "details": { }               // structured context, often including valid alternatives
   },
   "warnings": [ { "code": "W_…", "message": "…" } ],
-  "nextActions": [ { "reason": "…", "command": "gpcli … --json" } ]
+  "nextActions": [ { "reason": "…", "command": "globalpayments … --json" } ]
 }
 ```
 
@@ -90,7 +90,7 @@ into a parser.
 | 4 | `AUTH` | Credentials missing or rejected. | No |
 | 5 | `NETWORK` | GP API unreachable. | **Yes** |
 | 6 | `NOT_FOUND` | Unknown pack, case, or result artifact. | No |
-| 7 | `INTERNAL` | Bug in `gpcli`. | No — report it |
+| 7 | `INTERNAL` | Bug in `globalpayments`. | No — report it |
 
 Exit `1` is the one to think carefully about: the tool worked perfectly and is telling
 you the merchant is not yet certified. Do not treat it as a failure of the tool.
@@ -120,11 +120,11 @@ The same address string identifies the same case in `cases list`, `cases show`, 
 ### Cold start
 
 ```bash
-gpcli explain --json                      # 1. load the contract
-gpcli doctor  --json                      # 2. verify credentials + connectivity
-gpcli packs list --json                   # 3. discover suites
-gpcli cases list --cert <packId> --json   # 4. see what will be asserted
-gpcli run --cert <packId> --json          # 5. evaluate
+globalpayments explain --json                      # 1. load the contract
+globalpayments doctor  --json                      # 2. verify credentials + connectivity
+globalpayments packs list --json                   # 3. discover suites
+globalpayments cases list --cert <packId> --json   # 4. see what will be asserted
+globalpayments run --cert <packId> --json          # 5. evaluate
 ```
 
 Do not skip step 2. `doctor` isolates config, credential, and network failures into
@@ -134,8 +134,8 @@ separate checks, each with its own code and remediation. Debugging those from a 
 ### Diagnosing a non-passing case
 
 ```bash
-gpcli report --json                                # per-case reasons
-gpcli cases show <packId>:<caseId> --json          # the matcher and expectation
+globalpayments report --json                                # per-case reasons
+globalpayments cases show <packId>:<caseId> --json          # the matcher and expectation
 ```
 
 Read `data.observation.transactionsObserved` first:
@@ -149,7 +149,7 @@ Read `data.observation.transactionsObserved` first:
 ### CI gate
 
 ```bash
-gpcli run --cert <packId> --json    # exit 0 = certified, 1 = not
+globalpayments run --cert <packId> --json    # exit 0 = certified, 1 = not
 ```
 
 ---
@@ -157,7 +157,7 @@ gpcli run --cert <packId> --json    # exit 0 = certified, 1 = not
 ## 7. Configuration
 
 Credentials come from the environment. **A config file is optional** — omit `--config`
-entirely and `gpcli` builds its configuration from environment variables alone.
+entirely and `globalpayments` builds its configuration from environment variables alone.
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
@@ -191,7 +191,7 @@ A tower of layers. Each depends only on those below it.
 src/contract/          LAYER 1 — the boundary. Envelope, error taxonomy, exit codes,
                                  output sink, self-describing manifest.
   exit-codes.ts          the exit taxonomy
-  errors.ts              GpCliError + toGpCliError: the ONLY error classifier
+  errors.ts              GlobalPaymentsError + toGlobalPaymentsError: the ONLY error classifier
   envelope.ts            buildEnvelope: enforces ok === (exitCode === 0)
   emit.ts                emit / runCommand: the ONLY writer to stdout
   manifest.ts            buildManifest: derived from the live commander tree
@@ -216,7 +216,7 @@ src/commands/packs     LAYER 5 — discovery.
 1. **Commands never `console.log` a result and never `try/catch`.** They return a
    `CommandOutcome` or throw. `runCommand` owns rendering, classification, and exit
    codes. A command that catches its own errors silently breaks the exit-code taxonomy.
-2. **Only `toGpCliError` classifies errors.** Add new internal error types there, never
+2. **Only `toGlobalPaymentsError` classifies errors.** Add new internal error types there, never
    in a command.
 3. **Only `ids.ts` builds addresses.** Never write `` `${packId}:${caseId}` `` anywhere
    else.
@@ -244,7 +244,7 @@ export function registerThingCommand(program: Command): void {
         return {
           data,
           render: (value) => console.log(value), // text mode only
-          nextActions: [{ reason: '…', command: 'gpcli … --json' }]
+          nextActions: [{ reason: '…', command: 'globalpayments … --json' }]
         };
       });
     });
@@ -282,7 +282,7 @@ Packs live in `src/packs/<packId>/` as `pack.yaml` plus `cases/*.yaml`, and are 
 into `dist/packs/` at build time. Packs may `extends` other packs; child cases override
 parent cases with the same **local** id. Circular inheritance is detected and rejected.
 
-Adding a pack requires no code change — it is discovered by `gpcli packs list` on the
+Adding a pack requires no code change — it is discovered by `globalpayments packs list` on the
 next build.
 
 ### Things that will bite you

@@ -8,8 +8,8 @@ import {
   ERROR_CODES,
   ERROR_CODE_EXIT,
   ERROR_CODE_REMEDIATION,
-  GpCliError,
-  toGpCliError,
+  GlobalPaymentsError,
+  toGlobalPaymentsError,
   type ErrorCode
 } from '../src/contract/errors.js';
 import { EXIT_CODES, exitCodeName } from '../src/contract/exit-codes.js';
@@ -37,7 +37,7 @@ describe('contract: envelope invariant', () => {
 
     const failure = buildEnvelope({
       command: 'x',
-      error: new GpCliError(ERROR_CODES.E_NETWORK, 'down')
+      error: new GlobalPaymentsError(ERROR_CODES.E_NETWORK, 'down')
     });
     expect(failure.ok).toBe(false);
     expect(failure.exitCode).toBe(EXIT_CODES.NETWORK);
@@ -78,7 +78,7 @@ describe('contract: json mode purity', () => {
 
     emit(
       'demo',
-      { error: new GpCliError(ERROR_CODES.E_PACK_NOT_FOUND, 'nope') },
+      { error: new GlobalPaymentsError(ERROR_CODES.E_PACK_NOT_FOUND, 'nope') },
       { json: true, stdout: out.stream, stderr: err.stream }
     );
 
@@ -99,7 +99,7 @@ describe('contract: json mode purity', () => {
       {
         data: { value: 1 },
         render: () => rendered.push('summary'),
-        error: new GpCliError(ERROR_CODES.E_CERT_REQUIRED_CASES_FAILING, 'failing')
+        error: new GlobalPaymentsError(ERROR_CODES.E_CERT_REQUIRED_CASES_FAILING, 'failing')
       },
       { json: false, stdout: out.stream, stderr: err.stream }
     );
@@ -133,7 +133,7 @@ describe('contract: runCommand normalizes every failure', () => {
         'demo',
         { json: true, stdout: out.stream, stderr: captureStream().stream },
         async () => {
-          throw new GpCliError(code, 'x');
+          throw new GlobalPaymentsError(code, 'x');
         }
       );
       expect(envelope.nextActions, `missing nextActions for ${code}`).toBeDefined();
@@ -144,19 +144,19 @@ describe('contract: runCommand normalizes every failure', () => {
 
 describe('contract: error taxonomy', () => {
   it('maps every internal error type onto a stable code and distinct exit class', () => {
-    expect(toGpCliError(new ConfigLoadError('read-failed', 'p', 'm')).code).toBe('E_CONFIG_READ');
-    expect(toGpCliError(new ConfigLoadError('yaml-parse', 'p', 'm')).code).toBe('E_CONFIG_PARSE');
-    expect(toGpCliError(new ConfigLoadError('schema-invalid', 'p', 'm')).code).toBe('E_CONFIG_INVALID');
-    expect(toGpCliError(new InvalidCredentialsError('bad', 401)).code).toBe('E_AUTH_INVALID_CREDENTIALS');
-    expect(toGpCliError(new NetworkAuthError('offline')).code).toBe('E_NETWORK');
-    expect(toGpCliError(new MalformedAuthResponseError('weird')).code).toBe('E_AUTH_MALFORMED_RESPONSE');
-    expect(toGpCliError(new Error('Pack "x" not found. Searched: /a')).code).toBe('E_PACK_NOT_FOUND');
-    expect(toGpCliError(new Error('Parent pack not found: base')).code).toBe('E_PACK_NOT_FOUND');
+    expect(toGlobalPaymentsError(new ConfigLoadError('read-failed', 'p', 'm')).code).toBe('E_CONFIG_READ');
+    expect(toGlobalPaymentsError(new ConfigLoadError('yaml-parse', 'p', 'm')).code).toBe('E_CONFIG_PARSE');
+    expect(toGlobalPaymentsError(new ConfigLoadError('schema-invalid', 'p', 'm')).code).toBe('E_CONFIG_INVALID');
+    expect(toGlobalPaymentsError(new InvalidCredentialsError('bad', 401)).code).toBe('E_AUTH_INVALID_CREDENTIALS');
+    expect(toGlobalPaymentsError(new NetworkAuthError('offline')).code).toBe('E_NETWORK');
+    expect(toGlobalPaymentsError(new MalformedAuthResponseError('weird')).code).toBe('E_AUTH_MALFORMED_RESPONSE');
+    expect(toGlobalPaymentsError(new Error('Pack "x" not found. Searched: /a')).code).toBe('E_PACK_NOT_FOUND');
+    expect(toGlobalPaymentsError(new Error('Parent pack not found: base')).code).toBe('E_PACK_NOT_FOUND');
   });
 
   it('is idempotent so wrapping never loses classification', () => {
-    const original = new GpCliError(ERROR_CODES.E_NETWORK, 'down');
-    expect(toGpCliError(original)).toBe(original);
+    const original = new GlobalPaymentsError(ERROR_CODES.E_NETWORK, 'down');
+    expect(toGlobalPaymentsError(original)).toBe(original);
   });
 
   it('gives every error code an exit code and a remediation', () => {
@@ -207,7 +207,7 @@ describe('contract: manifest', () => {
   it('documents each command and its usage', () => {
     for (const command of manifest.commands) {
       expect(command.description.length, `${command.id} has no description`).toBeGreaterThan(10);
-      expect(command.usage.startsWith('gpcli ')).toBe(true);
+      expect(command.usage.startsWith('globalpayments ')).toBe(true);
     }
   });
 
@@ -223,12 +223,12 @@ describe('contract: manifest', () => {
     expect(required).toEqual(['GP_API_APP_ID', 'GP_API_APP_KEY']);
   });
 
-  it('provides workflows whose steps are literal gpcli invocations', () => {
+  it('provides workflows whose steps are literal globalpayments invocations', () => {
     expect(manifest.workflows.length).toBeGreaterThan(0);
     for (const workflow of manifest.workflows) {
       expect(workflow.steps.length).toBeGreaterThan(0);
       for (const step of workflow.steps) {
-        expect(step.command.startsWith('gpcli ')).toBe(true);
+        expect(step.command.startsWith('globalpayments ')).toBe(true);
       }
     }
   });

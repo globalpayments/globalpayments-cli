@@ -62,8 +62,8 @@ export function registerExplainCommand(program: Command): void {
         data: buildManifest(program),
         render: renderManifest,
         nextActions: [
-          { reason: 'Verify credentials and connectivity before running anything.', command: 'gpcli doctor --json' },
-          { reason: 'Discover which certification suites are available.', command: 'gpcli packs list --json' }
+          { reason: 'Verify credentials and connectivity before running anything.', command: 'globalpayments doctor --json' },
+          { reason: 'Discover which certification suites are available.', command: 'globalpayments packs list --json' }
         ]
       }));
     });

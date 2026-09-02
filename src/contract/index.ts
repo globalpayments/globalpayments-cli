@@ -1,7 +1,7 @@
 /**
  * The CLI boundary contract.
  *
- * Everything an automated caller needs to interoperate with gpcli is defined here
+ * Everything an automated caller needs to interoperate with globalpayments is defined here
  * and nowhere else: the output envelope, the error taxonomy, the exit-code taxonomy,
  * the single output sink, and the self-describing manifest.
  *
@@ -20,8 +20,8 @@ export {
   ERROR_CODES,
   ERROR_CODE_EXIT,
   ERROR_CODE_REMEDIATION,
-  GpCliError,
-  toGpCliError,
+  GlobalPaymentsError,
+  toGlobalPaymentsError,
   type ErrorCode,
   type SerializedError
 } from './errors.js';

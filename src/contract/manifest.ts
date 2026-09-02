@@ -21,7 +21,7 @@ export interface ManifestOption {
 export interface ManifestCommand {
   /** Dotted id, matching `envelope.command` exactly. */
   id: string;
-  /** Literal invocation, e.g. `gpcli cases show <caseId>`. */
+  /** Literal invocation, e.g. `globalpayments cases show <caseId>`. */
   usage: string;
   description: string;
   arguments: Array<{ name: string; required: boolean; description: string }>;
@@ -37,7 +37,7 @@ export interface EnvVar {
 }
 
 /**
- * Environment inputs. These are the only external state gpcli reads besides the
+ * Environment inputs. These are the only external state globalpayments reads besides the
  * optional config file.
  */
 export const ENVIRONMENT_VARIABLES: EnvVar[] = [
@@ -78,7 +78,7 @@ export const ENVIRONMENT_VARIABLES: EnvVar[] = [
  */
 export const CONCEPTS: Record<string, string> = {
   observer:
-    'gpcli never creates transactions. It polls the GP API for transactions you have already generated and judges them against certification cases. If nothing is passing, the usual cause is that no matching transaction has been sent yet.',
+    'globalpayments never creates transactions. It polls the GP API for transactions you have already generated and judges them against certification cases. If nothing is passing, the usual cause is that no matching transaction has been sent yet.',
   pack: 'A named, versioned collection of certification cases. Packs may extend other packs; child cases override parent cases with the same local id.',
   case: 'One certification assertion: a matcher that selects transactions, plus an expectation those transactions must satisfy.',
   caseAddress: `A case's globally unique id, formed as <packId>${ID_SEPARATOR}<caseId>. This is the id used in every result, every state entry, and every command that accepts a case.`,
@@ -109,27 +109,27 @@ export const WORKFLOWS: Workflow[] = [
     id: 'first-run',
     goal: 'Go from an unconfigured checkout to a certification result.',
     steps: [
-      { command: 'gpcli explain --json', purpose: 'Load the full interface contract.' },
-      { command: 'gpcli doctor --json', purpose: 'Verify credentials and connectivity before spending time on a run.' },
-      { command: 'gpcli packs list --json', purpose: 'Discover which certification suites are available.' },
-      { command: 'gpcli cases list --cert <packId> --json', purpose: 'See exactly what the suite will assert.' },
-      { command: 'gpcli run --cert <packId> --json', purpose: 'Evaluate and persist a result.' }
+      { command: 'globalpayments explain --json', purpose: 'Load the full interface contract.' },
+      { command: 'globalpayments doctor --json', purpose: 'Verify credentials and connectivity before spending time on a run.' },
+      { command: 'globalpayments packs list --json', purpose: 'Discover which certification suites are available.' },
+      { command: 'globalpayments cases list --cert <packId> --json', purpose: 'See exactly what the suite will assert.' },
+      { command: 'globalpayments run --cert <packId> --json', purpose: 'Evaluate and persist a result.' }
     ]
   },
   {
     id: 'diagnose-failure',
     goal: 'Understand why a case is not passing.',
     steps: [
-      { command: 'gpcli report --json', purpose: 'Read the last persisted result and its per-case reasons.' },
-      { command: 'gpcli cases show <packId>:<caseId> --json', purpose: 'Read the matcher and expectation the case enforces.' },
-      { command: 'gpcli run --cert <packId> --timeout 30s --json', purpose: 'Re-evaluate after sending a corrected transaction.' }
+      { command: 'globalpayments report --json', purpose: 'Read the last persisted result and its per-case reasons.' },
+      { command: 'globalpayments cases show <packId>:<caseId> --json', purpose: 'Read the matcher and expectation the case enforces.' },
+      { command: 'globalpayments run --cert <packId> --timeout 30s --json', purpose: 'Re-evaluate after sending a corrected transaction.' }
     ]
   },
   {
     id: 'ci',
     goal: 'Gate a pipeline on certification status.',
     steps: [
-      { command: 'gpcli run --cert <packId> --json', purpose: 'Exit 0 when all required cases pass, 1 when they do not.' }
+      { command: 'globalpayments run --cert <packId> --json', purpose: 'Exit 0 when all required cases pass, 1 when they do not.' }
     ]
   }
 ];
@@ -156,7 +156,7 @@ function describeOption(option: {
  * Walk the live commander tree to describe every command.
  *
  * Derivation rather than duplication: a command added to `buildCli` appears in
- * `gpcli explain` automatically, so the manifest cannot fall out of date.
+ * `globalpayments explain` automatically, so the manifest cannot fall out of date.
  */
 function describeCommands(program: Command, prefix: string[] = []): ManifestCommand[] {
   const out: ManifestCommand[] = [];
@@ -176,7 +176,7 @@ function describeCommands(program: Command, prefix: string[] = []): ManifestComm
 
     out.push({
       id: path.join('.'),
-      usage: ['gpcli', ...path, ...args.map((a) => (a.required ? `<${a.name()}>` : `[${a.name()}]`))].join(' '),
+      usage: ['globalpayments', ...path, ...args.map((a) => (a.required ? `<${a.name()}>` : `[${a.name()}]`))].join(' '),
       description: command.description(),
       arguments: args.map((a) => ({
         name: a.name(),
@@ -211,7 +211,7 @@ export interface Manifest {
 /** Build the complete machine-readable self-description of the CLI. */
 export function buildManifest(program: Command): Manifest {
   return {
-    tool: 'gpcli',
+    tool: 'globalpayments',
     cliVersion: CLI_VERSION,
     envelopeSchemaVersion: ENVELOPE_SCHEMA_VERSION,
     resultSchemaVersion: RESULT_SCHEMA_VERSION,
@@ -245,8 +245,8 @@ export function buildManifest(program: Command): Manifest {
     })),
     environment: ENVIRONMENT_VARIABLES,
     artifacts: [
-      { path: '.gpcli/results/latest.json', description: 'The most recent run result. Read by `gpcli report`.' },
-      { path: '.gpcli/results/history/<timestamp>.json', description: 'Immutable per-run archive.' }
+      { path: '.globalpayments/results/latest.json', description: 'The most recent run result. Read by `globalpayments report`.' },
+      { path: '.globalpayments/results/history/<timestamp>.json', description: 'Immutable per-run archive.' }
     ],
     workflows: WORKFLOWS
   };

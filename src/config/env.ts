@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { GpCliError, ERROR_CODES } from '../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
 
 /**
  * Load environment variables from an env file into process.env.
@@ -24,7 +24,7 @@ export function loadEnvFile(envFile?: string): void {
     if (envFile === DEFAULT_ENV_FILE) {
       return;
     }
-    throw new GpCliError(ERROR_CODES.E_CONFIG_READ, `Env file not found: ${envFile}`, {
+    throw new GlobalPaymentsError(ERROR_CODES.E_CONFIG_READ, `Env file not found: ${envFile}`, {
       details: { path: resolvedPath },
       remediation: `Create ${envFile}, correct --env-file, or omit the flag to read credentials from the process environment.`
     });
@@ -34,7 +34,7 @@ export function loadEnvFile(envFile?: string): void {
     process.loadEnvFile(resolvedPath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new GpCliError(ERROR_CODES.E_CONFIG_READ, `Unable to load env file ${envFile}: ${message}`, {
+    throw new GlobalPaymentsError(ERROR_CODES.E_CONFIG_READ, `Unable to load env file ${envFile}: ${message}`, {
       details: { path: resolvedPath },
       remediation: `Ensure ${envFile} is readable and contains valid KEY=value lines.`
     });

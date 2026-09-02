@@ -26,7 +26,7 @@ describe('loadEnvFile', () => {
     delete process.env.GP_API_APP_ID;
     delete process.env.GP_API_APP_KEY;
 
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gpcli-env-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-env-'));
     const envPath = path.join(root, '.env');
     await writeFile(envPath, 'GP_API_APP_ID=from-file\nGP_API_APP_KEY=from-file-key\n', 'utf8');
 
@@ -40,7 +40,7 @@ describe('loadEnvFile', () => {
     process.env.GP_API_APP_ID = 'from-shell';
     delete process.env.GP_API_APP_KEY;
 
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gpcli-env-priority-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-env-priority-'));
     const envPath = path.join(root, '.env');
     await writeFile(envPath, 'GP_API_APP_ID=from-file\nGP_API_APP_KEY=from-file-key\n', 'utf8');
 

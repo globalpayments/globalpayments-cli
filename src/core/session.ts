@@ -9,7 +9,7 @@ import { loadEvaluators, loadPackEvaluators } from './evaluator.js';
 import { enrichCasesWithDiagnostics } from './diagnostics.js';
 import { redactObject } from './redaction.js';
 import { caseAddress } from './ids.js';
-import { GpCliError, ERROR_CODES } from '../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
 import { RESULT_SCHEMA_VERSION } from '../contract/version.js';
 import type { CaseRunState } from './engine.js';
 import type {
@@ -68,7 +68,7 @@ export async function resolveSelection(options: SessionOptions): Promise<{
   const activePacks = resolveActivePacks(config, requested, options.profile);
 
   if (activePacks.length === 0) {
-    throw new GpCliError(
+    throw new GlobalPaymentsError(
       ERROR_CODES.E_NO_PACKS_SELECTED,
       'No certification packs are active for this invocation.',
       { details: { hint: 'Pass --cert <packId>, --pack <packId>, or --profile <name>.' } }
@@ -93,7 +93,7 @@ export async function createSession(options: SessionOptions): Promise<Certificat
   const { config, activePacks, packs, caseIndex } = await resolveSelection(options);
 
   if (!config.auth.appId || !config.auth.appKey) {
-    throw new GpCliError(
+    throw new GlobalPaymentsError(
       ERROR_CODES.E_AUTH_MISSING_CREDENTIALS,
       'GP API credentials are not configured (auth.appId / auth.appKey are empty).'
     );
@@ -200,7 +200,7 @@ export async function collectRunResult(
  * Translate a run result into a certification failure, or undefined when it passed.
  * Keeps the pass/fail exit-code decision in one place for every command.
  */
-export function certificationError(result: RunResult): GpCliError | undefined {
+export function certificationError(result: RunResult): GlobalPaymentsError | undefined {
   if (result.verdict === 'passed') {
     return undefined;
   }
@@ -209,7 +209,7 @@ export function certificationError(result: RunResult): GpCliError | undefined {
     .filter((c) => c.status !== 'pass')
     .map((c) => c.namespacedCaseId);
 
-  return new GpCliError(
+  return new GlobalPaymentsError(
     ERROR_CODES.E_CERT_REQUIRED_CASES_FAILING,
     `${result.required.failing} of ${result.required.total} required case(s) are not passing.`,
     { details: { notPassing: failing.slice(0, 25), notPassingTotal: failing.length } }

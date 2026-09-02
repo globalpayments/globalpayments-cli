@@ -15,16 +15,16 @@ import { registerReportCommand } from './commands/report.js';
  * Assemble the CLI.
  *
  * Registration order is the order commands appear in `--help` and in
- * `gpcli explain`, so it runs orient -> discover -> execute -> review, which is the
+ * `globalpayments explain`, so it runs orient -> discover -> execute -> review, which is the
  * order a caller encountering the tool for the first time needs them in.
  */
 export function buildCli(): Command {
   const program = new Command();
 
   program
-    .name('gpcli')
+    .name('globalpayments')
     .description(
-      'Observer-only certification CLI for Global Payments. Polls the GP API for transactions you have already sent, matches them to certification cases, and reports latest-match-wins results. Run `gpcli explain --json` for the full machine-readable contract.'
+      'Observer-only certification CLI for Global Payments. Polls the GP API for transactions you have already sent, matches them to certification cases, and reports latest-match-wins results. Run `globalpayments explain --json` for the full machine-readable contract.'
     )
     .version(CLI_VERSION);
 
