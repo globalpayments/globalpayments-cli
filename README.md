@@ -15,6 +15,35 @@ This tool is an observer-only client that runs outside your integration, validat
 - **Graceful failure handling** — Timeout with partial results, ambiguous-match detection, detailed error messages
 - **Persistent result artifacts** — JSON output for CI consumption; timestamped history in `.gpcli/results/`
 - **CLI + programmatic API** — Use as command-line tool or import as Node.js module
+- **Machine-readable everywhere** — `--json` on every command emits one versioned envelope with stable error codes, remediation, and suggested next commands
+
+## Automation and agents
+
+Every command supports `--json`, and every JSON invocation writes exactly one envelope
+to stdout and nothing else. Failures carry a stable `error.code` plus a `remediation`,
+and exit codes distinguish a certification failure (`1`) from a config (`3`), auth (`4`),
+or network (`5`) problem.
+
+Start here:
+
+```bash
+gpcli explain --json    # the complete interface contract in one call
+```
+
+See **[AGENTS.md](AGENTS.md)** for the full contract, invariants, and architecture.
+
+### Exit codes
+
+| Code | Name | Meaning |
+|---|---|---|
+| 0 | `OK` | Success |
+| 1 | `CERT_FAILED` | Run completed; required cases not passing (a result, not a tool error) |
+| 2 | `USAGE` | Malformed invocation |
+| 3 | `CONFIG` | Config missing, unparseable, or invalid |
+| 4 | `AUTH` | Credentials missing or rejected |
+| 5 | `NETWORK` | GP API unreachable (retryable) |
+| 6 | `NOT_FOUND` | Unknown pack, case, or result artifact |
+| 7 | `INTERNAL` | Bug in gpcli |
 
 ## Installation
 
@@ -101,8 +130,9 @@ Non-interactive scaffolding — writes template files, no prompts. Always writes
 Validate GP API access and resolve active certification packs without polling. Safe to run before watch/run.
 
 **Output:**
-- Auth status (valid credentials, token expiry, account access)
-- Resolved packs and case count
+- Per-check `status` (`pass` / `fail` / `skip`), `detail`, and `remediation`
+- Resolved environment, base URL, and config source
+- Available bundled certification suites
 - Config redaction summary
 - Suggested next steps
 
@@ -131,9 +161,13 @@ globalpayments auth test --config .gpcli/config.yaml
 List all resolved certification cases grouped by pack.
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
+- `--config <path>` — Config file path (optional)
 - `--pack <packId...>` — Activate one or more packs (space-separated)
 - `--profile <name>` — Activate profile-defined packs (from config)
+- `--cert <name>` — Shorthand for a single `--pack`
+- `--required-only` — Restrict output to required cases
+- `--tag <tag...>` — Restrict output to cases carrying all of these tags
+- `--json` — Machine-readable output
 
 **Example:**
 ```bash
@@ -146,13 +180,17 @@ globalpayments cases list --config .gpcli/config.yaml --pack global-core eu-ecom
 # ...
 ```
 
+Case addresses are formatted `<packId>:<caseId>` and are identical across
+`cases list`, `cases show`, `run`, `watch`, and `report`.
+
 ---
 
 ### `globalpayments cases show <caseId>`
 Display full resolved case definition (matcher rules + expectations).
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
+- `--config <path>` — Config file path (optional)
+- `--json` — Machine-readable output
 
 **Example:**
 ```bash
@@ -173,9 +211,8 @@ Poll for case matches in real-time. Continuously fetches transactions, evaluates
 - `--profile <name>` — Activate profile-defined packs (from config)
 - `--cert <name>` — Activate a bundled certification suite by name (shorthand for `--pack`)
 
-**Exit code:**
-- `0` — Timeout or user interrupt; results persisted
-- `1` — Auth error, config error, or unrecoverable failure
+**Exit codes:** see the [exit-code table](#exit-codes). `0` when all required cases
+pass, `1` when they do not, and a distinct code for config, auth, and network faults.
 
 **Output:**
 ```
@@ -183,7 +220,7 @@ Polling (elapsed: 2m 15s | fetched: 234 txns | window: 15m)
 
 ✓ global-core:sale-approved [PASS]
 ✗ global-core:sale-declined [FAIL] — No matches found
-○ eu-ecommerce:3ds-sale [PEND] — Awaiting match
+○ global-ecommerce:3ds-sale [PEND] — Awaiting match
 
 Recent transactions:
   14:32:01  SALE  CAPTURED  100 USD  Visa ····1234  [00]
@@ -204,9 +241,10 @@ CI-friendly mode: single polling cycle, exit non-zero if any required cases fail
 - `--cert <name>` — Activate a bundled certification suite by name (shorthand for `--pack`)
 - `--json` — Output JSON instead of pretty-printed results
 
-**Exit code:**
-- `0` — All required cases passing
-- `1` — Any required case failing, auth error, or config error
+**Exit codes:** see the [exit-code table](#exit-codes). Notably `1` means the run
+completed and required cases are not passing — distinct from `3` (config), `4` (auth),
+and `5` (network), so a pipeline can tell a genuine certification failure from an
+infrastructure fault.
 
 **Example (GitHub Actions):**
 ```yaml
@@ -226,6 +264,7 @@ Display a persisted result JSON file in human-readable format.
 
 **Options:**
 - `--input <path>` — Result JSON file (default: `.gpcli/results/latest.json`)
+- `--json` — Machine-readable output
 
 **Example:**
 ```bash
@@ -270,8 +309,7 @@ packs:
 # Packs to load on startup
 activePacks:
   - global-core
-  - eu-ecommerce
-  - us-retail
+  - global-ecommerce
 ```
 
 ### Environment Variables
@@ -419,7 +457,7 @@ After each polling cycle, results are written to:
       }
     },
     {
-      "namespacedId": "eu-ecommerce:3ds-sale",
+      "namespacedId": "global-ecommerce:3ds-sale",
       "status": "pend",
       "required": false,
       "reason": "No matches found",
@@ -535,7 +573,7 @@ jobs:
 
 ## Programmatic API
 
-Import and use gp-cli as a Node.js module:
+Import and use globalpayments-cli as a Node.js module:
 
 ```typescript
 import { buildCli } from '@globalpayments/cli';
@@ -561,35 +599,45 @@ See `src/` for full type definitions.
 
 ## Testing
 
-Run the test suite:
-
 ```bash
-npm test              # Single run
-npm run test:watch   # Watch mode
+npm run verify        # typecheck + tests + build + build-level smoke
+npm test              # Unit suite, single run
+npm run test:watch    # Watch mode
+npm run smoke         # Contract checks against dist/bin.js (requires a build)
 ```
 
+`npm run verify` is the command to run before calling a change done. The unit suite
+runs in-source and therefore cannot observe faults that exist only in the bundled
+artifact — path anchoring, packaging, stdout purity, and the CLI's exit codes.
+`scripts/smoke.mjs` invokes the built binary the way a real caller would, with
+credentials blanked so it never touches the network.
+
 Coverage includes:
+- The output contract: envelope invariants, exit-code taxonomy, error-code stability
+- Case addressing (`<packId>:<caseId>`) and pack inheritance resolution
 - Config loading and schema validation
 - Auth provider and GP API client
 - Matcher logic and case evaluation
 - Polling state machine and window management
 - Result persistence and redaction
 - Diagnostics and error messages
-- CLI smoke tests
 
 ## Development
 
 ```bash
 npm install
-npm run lint          # Type check
-npm run build         # Compile to dist/
-npm run dev           # Run from source (tsx)
-npm test              # Tests
+npm run typecheck     # tsc --noEmit, strict
+npm run build         # Compile to dist/ and copy src/packs -> dist/packs
+npm run dev -- <args> # Run from source (tsx)
+npm run verify        # Everything
 
 # Try the CLI locally
-node dist/bin.js --help
-node dist/bin.js doctor --config examples/gpcli.config.yaml
+node dist/bin.js explain --json
+node dist/bin.js packs list
+node dist/bin.js doctor
 ```
+
+See [AGENTS.md](AGENTS.md) for the machine contract and the internal architecture.
 
 ## Contributing
 
@@ -598,15 +646,15 @@ Contributions are welcome. Please:
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
-4. Run `npm run lint` and `npm test` before submitting PR
+4. Run `npm run verify` before submitting a PR
 5. Follow existing code style (TypeScript strict mode, no `any`)
 
 ## Resources
 
-- [Global Payments Developer Portal](https://developer.globalpayments.com/)
-- [GP API Reference](https://developer.globalpayments.com/api/references-overview)
-- [API Documentation](https://developer.globalpayments.com/)
-- [Support](https://developer.globalpayments.com/support)
+- [Global Payments Developer Portal](https://developer.gpcli.com/)
+- [GP API Reference](https://developer.gpcli.com/api/references-overview)
+- [API Documentation](https://developer.gpcli.com/)
+- [Support](https://developer.gpcli.com/support)
 
 ## License
 
@@ -614,4 +662,4 @@ MIT — See LICENSE file for details.
 
 ---
 
-**Questions?** Open an issue on [GitHub](https://github.com/globalpayments/globalpayments-cli/issues) or contact [CommunityExperience@globalpayments.com](mailto:CommunityExperience@globalpayments.com).
+**Questions?** Open an issue on [GitHub](https://github.com/gpcli/globalpayments-cli/issues) or contact [CommunityExperience@globalpayments.com](mailto:CommunityExperience@globalpayments.com).

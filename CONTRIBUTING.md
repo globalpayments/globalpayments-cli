@@ -15,8 +15,8 @@ Be respectful, inclusive, and professional. Harassment, discrimination, and host
 
 ### Local Setup
 ```bash
-git clone https://github.com/globalpayments/globalpayments-cli.git
-cd gp-cli
+git clone https://github.com/gpcli/globalpayments-cli.git
+cd globalpayments-cli
 npm install
 npm run build
 npm test
@@ -160,6 +160,7 @@ npm run lint  # tsc --noEmit
 
 ### Testing
 ```bash
+npm run verify        # typecheck + tests + build + build-level smoke (run this before every PR)
 npm test              # Run all tests once
 npm run test:watch   # Watch mode (re-run on changes)
 ```
