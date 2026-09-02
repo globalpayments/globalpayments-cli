@@ -33,7 +33,9 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke": "node scripts/smoke.mjs",
+    "verify": "npm run typecheck && npm test && npm run build && npm run smoke"
   },
   "engines": {
     "node": ">=20"
