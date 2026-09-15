@@ -92,6 +92,30 @@ npm run dev -- report
 Results are persisted to `.globalpayments/results/latest.json` and archived under
 `.globalpayments/results/history/`.
 
+## Turn a red case green
+
+`report` tells you a case is red. `diagnose` tells you why, at field level, and what to
+send instead.
+
+```bash
+npm run dev -- diagnose
+npm run dev -- diagnose global-core:basic-sale-approved
+```
+
+For each non-passing case it names the closest transaction it actually observed, the
+exact matcher field that differed, and the change to make to your request:
+
+```
+○ global-core:basic-sale-approved  MATCHER_MISMATCH
+    closest observed: TRN_ccc — 2/3 matcher fields, 67%
+      ✗ amount  expected 2002  observed 1001
+
+    to turn this green:
+      1. [high] Set `amount` to 2002 in the request you send.
+```
+
+It reads the saved result, so it needs no credentials and makes no network calls.
+
 ## Automating it
 
 Every command accepts `--json` and emits a single envelope on stdout:
@@ -140,6 +164,7 @@ See [AGENTS.md](AGENTS.md) for the full automation guide.
 | `npm run dev -- explain` | Full CLI contract |
 | `npm run dev -- doctor --json` | Structured readiness report |
 | `npm run dev -- packs list` | Available certification suites |
+| `npm run dev -- diagnose` | Why cases are red and what to change |
 
 ## Common issues
 
@@ -150,8 +175,8 @@ This is the normal first result and usually not an error. Check
 
 - **`0`** — nothing was in the polling window. Send the transactions the suite expects,
   or widen `polling.lookbackMinutes` in your config.
-- **`> 0`** — transactions arrived but none matched. Compare the `matcher` from
-  `globalpayments cases show <address>` against what you actually sent.
+- **`> 0`** — transactions arrived but none matched. Run `globalpayments diagnose`; it names
+  the closest transaction it saw and the exact matcher field that differed.
 
 ### `E_AUTH_INVALID_CREDENTIALS` (exit 4)
 

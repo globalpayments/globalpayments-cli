@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type {
+  CaseDiagnosis,
   CaseEvaluationResult,
   CertificationCase,
   CertificationPack,
@@ -10,6 +11,7 @@ import type {
 import type { GpApiClient } from '../gpapi/client.js';
 import { matchCaseToTransactions } from './matching.js';
 import { evaluateCase } from './evaluator.js';
+import { diagnoseCase } from './diagnosis.js';
 import { calculatePollingWindow } from './polling.js';
 import { caseAddress } from './ids.js';
 
@@ -25,6 +27,8 @@ export interface CaseRunState {
   latestMatch?: TransactionRecord;
   matchedCount: number;
   evaluatedAt?: number;
+  /** Field-level cause and remediation. Absent while passing. */
+  diagnosis?: CaseDiagnosis;
 }
 
 /**
@@ -149,16 +153,22 @@ export class CertificationEngine extends EventEmitter {
 
     // Fetch transactions from GP API
     let transactions: TransactionRecord[] = [];
+    let pollFailed = false;
     try {
       transactions = await this.client.fetchRecentTransactions(window);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.emit('error', {
+      pollFailed = true;
+      // Deliberately NOT the reserved 'error' event: Node throws when an 'error' event
+      // has no listener, which would abort the run over a condition we recover from
+      // here. The cycle continues; the diagnosis reports OBSERVATION_FAILED.
+      this.emit('pollError', {
         type: 'polling_error',
         message: `Failed to fetch transactions: ${msg}`,
         error
       });
-      // Continue with empty transaction list; this cycle will mark all cases as pending
+      // Continue with empty transaction list; this cycle will mark all cases as pending.
+      // `pollFailed` keeps the diagnosis from reporting that as "nothing was sent".
     }
 
     this.state.lastPolledAt = now;
@@ -191,6 +201,17 @@ export class CertificationEngine extends EventEmitter {
         : evaluateCase(pack, caze, matches, packEvaluators);
 
       // Update state
+      const diagnosis = diagnoseCase({
+        caze,
+        status: evaluationResult.status,
+        observedTransactions: transactions,
+        matches,
+        ...(evaluationResult.latestMatch ? { latestMatch: evaluationResult.latestMatch } : {}),
+        ambiguous: matchResult.ambiguous,
+        lookbackMinutes: this.config.polling.lookbackMinutes,
+        pollFailed
+      });
+
       const newRunState: CaseRunState = {
         caseId: evaluationResult.caseId,
         packId: evaluationResult.packId,
@@ -199,7 +220,8 @@ export class CertificationEngine extends EventEmitter {
         reason: evaluationResult.reason,
         latestMatch: evaluationResult.latestMatch,
         matchedCount: evaluationResult.matchedCount,
-        evaluatedAt: now
+        evaluatedAt: now,
+        ...(diagnosis ? { diagnosis } : {})
       };
 
       this.state.cases.set(namespacedId, newRunState);

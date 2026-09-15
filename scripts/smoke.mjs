@@ -9,7 +9,8 @@
  * safe to run in CI without credentials.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -118,6 +119,98 @@ check('packs list (text): prints something', textPacks.stdout.trim().length > 0)
 // --- report ----------------------------------------------------------------
 const missingResult = invokeJson(['report', '--input', 'no/such/result.json'], 'report (missing input)');
 check('missing result: exits 6', missingResult?.exitCode === 6, `got ${missingResult?.exitCode}`);
+
+// --- diagnose --------------------------------------------------------------
+// The remediation path must work offline, from an artifact alone. Exercised here
+// because an agent's red-to-green loop depends on `data.fixPlan` being present in
+// the built artifact, not just in source.
+const missingDiagnoseResult = invokeJson(['diagnose', '--input', 'no/such/result.json'], 'diagnose (missing input)');
+check('diagnose (missing input): exits 6', missingDiagnoseResult?.exitCode === 6, `got ${missingDiagnoseResult?.exitCode}`);
+check(
+  'diagnose (missing input): E_RESULT_NOT_FOUND',
+  missingDiagnoseResult?.error?.code === 'E_RESULT_NOT_FOUND',
+  missingDiagnoseResult?.error?.code
+);
+
+const badAddress = invokeJson(['diagnose', 'not-an-address', '--input', 'no/such/result.json'], 'diagnose (bad address)');
+check('diagnose (bad address): exits 2', badAddress?.exitCode === 2, `got ${badAddress?.exitCode}`);
+check('diagnose (bad address): E_USAGE', badAddress?.error?.code === 'E_USAGE', badAddress?.error?.code);
+
+const fixtureDir = mkdtempSync(path.join(tmpdir(), 'globalpayments-smoke-'));
+const fixturePath = path.join(fixtureDir, 'result.json');
+
+try {
+  writeFileSync(
+    fixturePath,
+    JSON.stringify({
+      schemaVersion: explain?.data?.resultSchemaVersion ?? 2,
+      timestamp: '2026-09-14T12:00:00.000Z',
+      environment: 'sandbox',
+      activePacks: ['global-core'],
+      verdict: 'failed',
+      summary: { pass: 0, fail: 0, pending: 1, total: 1 },
+      required: { total: 1, passing: 0, failing: 1 },
+      cases: [
+        {
+          namespacedCaseId: 'global-core:basic-sale-approved',
+          packId: 'global-core',
+          caseId: 'basic-sale-approved',
+          status: 'pending',
+          reason: 'No matching transactions found in current window',
+          matchedCount: 0,
+          diagnosis: {
+            code: 'MATCHER_MISMATCH',
+            summary: 'The closest observed transaction used a different amount.',
+            observed: { transactionsInWindow: 1, candidatesMatched: 0 },
+            fixes: [
+              {
+                action: 'change-request-field',
+                field: 'amount',
+                currentValue: 1000,
+                requiredValue: 2002,
+                instruction: 'Set `amount` to 2002 in the request you send.',
+                confidence: 'high'
+              }
+            ],
+            nearMisses: [],
+            expectationDeltas: [],
+            requiredRequest: { send: { type: 'SALE', amount: 2002 }, mustResultIn: { statusIn: ['CAPTURED'] }, notes: [] }
+          }
+        }
+      ],
+      redactedConfig: {}
+    }),
+    'utf8'
+  );
+
+  const diagnose = invokeJson(['diagnose', '--input', fixturePath], 'diagnose');
+  check('diagnose: succeeds', diagnose?.ok === true, diagnose?.error?.code);
+  check('diagnose: exits 0 even though the run failed', diagnose?.exitCode === 0, `got ${diagnose?.exitCode}`);
+  check('diagnose: emits a fix plan', (diagnose?.data?.fixPlan ?? []).length > 0);
+  check(
+    'diagnose: fix plan entries carry a structured field change',
+    diagnose?.data?.fixPlan?.[0]?.field === 'amount' && diagnose?.data?.fixPlan?.[0]?.requiredValue === 2002,
+    JSON.stringify(diagnose?.data?.fixPlan?.[0])
+  );
+  check('diagnose: counts causes by code', diagnose?.data?.byCode?.MATCHER_MISMATCH === 1, JSON.stringify(diagnose?.data?.byCode));
+
+  const scoped = invokeJson(
+    ['diagnose', 'global-core:basic-sale-approved', '--input', fixturePath],
+    'diagnose (single case)'
+  );
+  check('diagnose (single case): succeeds', scoped?.ok === true, scoped?.error?.code);
+  check('diagnose (single case): returns exactly that case', (scoped?.data?.cases ?? []).length === 1);
+
+  const unknownCase = invokeJson(['diagnose', 'global-core:nope', '--input', fixturePath], 'diagnose (unknown case)');
+  check('diagnose (unknown case): exits 6', unknownCase?.exitCode === 6, `got ${unknownCase?.exitCode}`);
+  check('diagnose (unknown case): E_CASE_NOT_FOUND', unknownCase?.error?.code === 'E_CASE_NOT_FOUND', unknownCase?.error?.code);
+
+  const diagnoseText = invoke(['diagnose', '--input', fixturePath]);
+  check('diagnose (text): exits 0', diagnoseText.exitCode === 0, `got ${diagnoseText.exitCode}`);
+  check('diagnose (text): states the fix', diagnoseText.stdout.includes('2002'), diagnoseText.stdout.slice(0, 200));
+} finally {
+  rmSync(fixtureDir, { recursive: true, force: true });
+}
 
 if (failures.length > 0) {
   console.error(`\nsmoke: ${failures.length} of ${checks} checks failed\n`);

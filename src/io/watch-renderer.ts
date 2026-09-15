@@ -105,10 +105,23 @@ function renderDetail(detail: CaseDetail): string[] {
   if (detail.reason) {
     lines.push(`${pc.gray('Reason:')} ${detail.reason}`);
   }
+  if (detail.diagnosisCode) {
+    lines.push(`${pc.gray('Cause:')} ${pc.magenta(detail.diagnosisCode)}`);
+  }
   lines.push('');
   lines.push(pc.bold('Scenario'));
   lines.push(`  ${detail.scenario}`);
   lines.push('');
+
+  // The remedy comes before the evidence: someone watching a red case wants the
+  // change to make, not a field table to interpret first.
+  if (detail.fixes.length > 0) {
+    lines.push(pc.bold(pc.yellow('To turn this green')));
+    detail.fixes.forEach((fix, index) => {
+      lines.push(`  ${index + 1}. ${fix}`);
+    });
+    lines.push('');
+  }
 
   if (detail.status === 'fail') {
     lines.push(pc.bold('What we expected'));

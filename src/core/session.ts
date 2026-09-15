@@ -150,7 +150,8 @@ export async function collectRunResult(
     status: state.status,
     reason: state.reason,
     latestMatch: state.latestMatch,
-    matchedCount: state.matchedCount
+    matchedCount: state.matchedCount,
+    ...(state.diagnosis ? { diagnosis: state.diagnosis } : {})
   }));
 
   if (!options.skipDiagnostics) {

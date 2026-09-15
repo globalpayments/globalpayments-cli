@@ -564,7 +564,7 @@ describe('CertificationEngine', () => {
       const engine = new CertificationEngine(config, [pack], mockClient, {}, {});
 
       const events: unknown[] = [];
-      engine.on('error', (e: unknown) => events.push(e));
+      engine.on('pollError', (e: unknown) => events.push(e));
 
       const result = await engine.runOnce();
 
@@ -572,6 +572,151 @@ describe('CertificationEngine', () => {
       expect(events[0]!).toHaveProperty('type', 'polling_error');
       // Case should be pending since no transactions were fetched
       expect(result.cases[0]!.status).toEqual('pending');
+    });
+  });
+
+  describe('diagnosis', () => {
+    it('attaches a field-level diagnosis to a case that matched nothing', async () => {
+      const caze: CertificationCase = {
+        id: 'case-1',
+        name: 'Test Case case-1',
+        required: true,
+        matcher: { type: 'Sale', currency: 'USD', amount: 2002 },
+        expect: { latest: { statusIn: ['Captured'] } }
+      };
+      const pack = createTestPack('pack-1', [caze]);
+
+      // Same shape, wrong amount: the one field the caller has to change.
+      client.setTransactions([createTestTxn('txn-1', 'ref-other')]);
+
+      const engine = new CertificationEngine(config, [pack], client, {}, {});
+      const result = await engine.runOnce();
+      const diagnosis = result.cases[0]!.diagnosis;
+
+      expect(result.cases[0]!.status).toBe('pending');
+      expect(diagnosis?.code).toBe('MATCHER_MISMATCH');
+      expect(diagnosis?.fixes[0]).toMatchObject({
+        action: 'change-request-field',
+        field: 'amount',
+        currentValue: 100,
+        requiredValue: 2002
+      });
+      expect(diagnosis?.observed).toEqual({ transactionsInWindow: 1, candidatesMatched: 0 });
+    });
+
+    it('attaches an expectation diagnosis when a match violates the expectation', async () => {
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+      client.setTransactions([createTestTxn('txn-1', 'ref-case-1', 'Declined')]);
+
+      const engine = new CertificationEngine(config, [pack], client, {}, {});
+      const result = await engine.runOnce();
+
+      expect(result.cases[0]!.status).toBe('fail');
+      expect(result.cases[0]!.diagnosis?.code).toBe('EXPECTATION_VIOLATED');
+      expect(result.cases[0]!.diagnosis?.expectationDeltas[0]).toMatchObject({
+        field: 'status',
+        actual: 'Declined',
+        satisfied: false
+      });
+    });
+
+    it('carries the configured lookback window into the remediation', async () => {
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+
+      const engine = new CertificationEngine(config, [pack], client, {}, {});
+      const result = await engine.runOnce();
+      const widen = result.cases[0]!.diagnosis?.fixes.find((fix) => fix.action === 'widen-window');
+
+      expect(result.cases[0]!.diagnosis?.code).toBe('NO_TRANSACTIONS_OBSERVED');
+      expect(widen?.currentValue).toBe(config.polling.lookbackMinutes);
+    });
+
+    it('omits the diagnosis entirely on a passing case', async () => {
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+      client.setTransactions([createTestTxn('txn-1', 'ref-case-1')]);
+
+      const engine = new CertificationEngine(config, [pack], client, {}, {});
+      const result = await engine.runOnce();
+
+      expect(result.cases[0]!.status).toBe('pass');
+      expect(result.cases[0]!.diagnosis).toBeUndefined();
+    });
+
+    it('clears a stale diagnosis when a case turns green on a later cycle', async () => {
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+
+      const engine = new CertificationEngine(config, [pack], client, {}, {});
+
+      const first = await engine.runOnce();
+      expect(first.cases[0]!.diagnosis).toBeDefined();
+
+      client.setTransactions([createTestTxn('txn-1', 'ref-case-1')]);
+      const second = await engine.runOnce();
+
+      expect(second.cases[0]!.status).toBe('pass');
+      expect(second.cases[0]!.diagnosis).toBeUndefined();
+    });
+
+    it('distinguishes a failed poll from an empty window', async () => {
+      // A swallowed fetch failure leaves every case pending with zero transactions.
+      // Reporting that as "nothing was sent" would send the caller to their
+      // integration when the real fault is credentials or connectivity.
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+
+      const failingClient = {
+        fetchRecentTransactions: vi.fn().mockRejectedValue(new Error('Network error'))
+      } as unknown as GpApiClient;
+
+      const engine = new CertificationEngine(config, [pack], failingClient, {}, {});
+
+      const result = await engine.runOnce();
+      const diagnosis = result.cases[0]!.diagnosis;
+
+      expect(result.cases[0]!.status).toBe('pending');
+      expect(diagnosis?.code).toBe('OBSERVATION_FAILED');
+      expect(diagnosis?.fixes.map((fix) => fix.action)).toEqual(['repair-connection']);
+    });
+
+    it('survives a poll failure with no listener attached', async () => {
+      // Node throws when an 'error' event has no listener. Emitting a recoverable
+      // polling failure under that name aborted the whole run with E_INTERNAL, which
+      // made OBSERVATION_FAILED unreachable in the real `run` path.
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+
+      const failingClient = {
+        fetchRecentTransactions: vi.fn().mockRejectedValue(new Error('403'))
+      } as unknown as GpApiClient;
+
+      const engine = new CertificationEngine(config, [pack], failingClient, {}, {});
+      expect(engine.listenerCount('pollError')).toBe(0);
+
+      await expect(engine.runOnce()).resolves.toBeDefined();
+    });
+
+    it('recovers to a normal diagnosis once polling succeeds again', async () => {
+      const caze = createTestCase('case-1');
+      const pack = createTestPack('pack-1', [caze]);
+
+      const flakyClient = {
+        fetchRecentTransactions: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('Network error'))
+          .mockResolvedValue([])
+      } as unknown as GpApiClient;
+
+      const engine = new CertificationEngine(config, [pack], flakyClient, {}, {});
+
+      const first = await engine.runOnce();
+      expect(first.cases[0]!.diagnosis?.code).toBe('OBSERVATION_FAILED');
+
+      const second = await engine.runOnce();
+      expect(second.cases[0]!.diagnosis?.code).toBe('NO_TRANSACTIONS_OBSERVED');
     });
   });
 });

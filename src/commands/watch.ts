@@ -100,7 +100,7 @@ export function registerWatchCommand(program: Command): void {
           timedOut = true;
         });
 
-        session.engine.on('error', (event: { message: string }) => {
+        session.engine.on('pollError', (event: { message: string }) => {
           if (live && !controller) {
             console.error(pc.red('poll error:'), event.message);
           }

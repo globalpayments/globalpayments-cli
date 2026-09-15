@@ -53,6 +53,7 @@ export function registerRunCommand(program: Command): void {
         let transactionsObserved = 0;
         let pollCycles = 0;
         let timedOut = false;
+        let lastPollError: string | undefined;
         const startedAt = Date.now();
 
         session.engine.on('cycleComplete', (event: { transactionsFetched: number }) => {
@@ -61,6 +62,11 @@ export function registerRunCommand(program: Command): void {
         });
         session.engine.on('watchTimeout', () => {
           timedOut = true;
+        });
+        // Polling failures are recoverable and do not abort the run, but they must not
+        // be silent: without this the caller sees every case pending and no reason why.
+        session.engine.on('pollError', (event: { message: string }) => {
+          lastPollError = event.message;
         });
 
         await session.engine.watch({ maxTimeoutMs: timeoutMs });
@@ -84,6 +90,15 @@ export function registerRunCommand(program: Command): void {
           nextActions: buildRunNextActions(data),
           render: (value) => renderRunSummary(value, console.log)
         };
+
+        if (lastPollError) {
+          outcome.warnings = [
+            {
+              code: 'W_POLL_FAILED',
+              message: `${lastPollError}. Cases could not be observed this run; verify with \`globalpayments doctor --json\`.`
+            }
+          ];
+        }
 
         const certError = certificationError(result);
         if (certError) {

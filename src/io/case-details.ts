@@ -1,4 +1,4 @@
-import type { CertificationCase, TransactionRecord } from '../types/domain.js';
+import type { CaseDiagnosis, CertificationCase, TransactionRecord } from '../types/domain.js';
 
 export type DetailRowStatus = 'matched' | 'changed' | 'missing' | 'unavailable';
 
@@ -23,6 +23,10 @@ export interface CaseDetail {
   expectedValues: DetailValueRow[];
   sentValues: DetailValueRow[];
   comparisons: DetailComparisonRow[];
+  /** Stable cause category, when the case has been diagnosed. */
+  diagnosisCode?: string;
+  /** Ordered instructions that would turn this case green. Empty when passing. */
+  fixes: string[];
 }
 
 interface CaseStateLike {
@@ -32,6 +36,7 @@ interface CaseStateLike {
   reason: string;
   latestMatch?: TransactionRecord;
   matchedCount: number;
+  diagnosis?: CaseDiagnosis;
 }
 
 function namespacedIdFor(caze: CertificationCase, state: CaseStateLike): string {
@@ -144,6 +149,8 @@ export function buildCaseDetail(caze: CertificationCase, state: CaseStateLike): 
     scenario,
     expectedValues: expectedRows(caze),
     sentValues: sentRows(latestMatch),
-    comparisons: comparisonRows(caze, latestMatch)
+    comparisons: comparisonRows(caze, latestMatch),
+    ...(state.diagnosis ? { diagnosisCode: state.diagnosis.code } : {}),
+    fixes: state.diagnosis?.fixes.map((fix) => fix.instruction) ?? []
   };
 }

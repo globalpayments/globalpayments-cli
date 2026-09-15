@@ -21,6 +21,9 @@ export interface RunViewModel extends RunResult {
  * The three failure shapes are meaningfully different and lead to different actions:
  * nothing observed at all (send transactions), matches that violated expectations
  * (inspect the case), or a clean pass (archive the report).
+ *
+ * Whenever a diagnosis exists, `diagnose` leads: it is the only command that reports
+ * *which field* missed and what the corrected request looks like.
  */
 export function buildRunNextActions(view: RunViewModel): NextAction[] {
   const actions: NextAction[] = [];
@@ -36,6 +39,14 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
 
   const pending = view.cases.filter((c) => c.status === 'pending');
   const failed = view.cases.filter((c) => c.status === 'fail');
+  const diagnosed = view.cases.filter((c) => c.status !== 'pass' && c.diagnosis !== undefined);
+
+  if (diagnosed.length > 0) {
+    actions.push({
+      reason: `Get the field-level cause and an ordered fix plan for all ${diagnosed.length} non-passing case(s).`,
+      command: 'globalpayments diagnose --json'
+    });
+  }
 
   if (view.observation.transactionsObserved === 0) {
     actions.push({
@@ -45,15 +56,15 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
     });
   } else if (pending.length > 0) {
     actions.push({
-      reason: `${pending.length} case(s) saw no matching transaction. Compare their matchers against what you sent.`,
-      command: `globalpayments cases show ${pending[0]!.namespacedCaseId} --json`
+      reason: `${pending.length} case(s) saw no matching transaction. See exactly which matcher field differed.`,
+      command: `globalpayments diagnose ${pending[0]!.namespacedCaseId} --json`
     });
   }
 
   if (failed.length > 0) {
     actions.push({
       reason: `${failed.length} case(s) matched a transaction but violated their expectation. Inspect the first one.`,
-      command: `globalpayments cases show ${failed[0]!.namespacedCaseId} --json`
+      command: `globalpayments diagnose ${failed[0]!.namespacedCaseId} --json`
     });
   }
 
@@ -98,7 +109,15 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
     log(pc.bold('Not passing:'));
     for (const caze of notPassing) {
       log(`  ${statusIcon(caze.status)} ${pc.cyan(caze.namespacedCaseId)} — ${caze.reason}`);
+      // The single highest-confidence change that would turn this case green. The
+      // full field-level breakdown lives in `globalpayments diagnose`.
+      const topFix = caze.diagnosis?.fixes[0];
+      if (topFix) {
+        log(`      ${pc.yellow('fix:')} ${topFix.instruction}`);
+      }
     }
+    log();
+    log(pc.gray('Field-level causes and the full fix plan: ') + pc.yellow('globalpayments diagnose'));
   }
 
   if (view.observation.transactionsObserved === 0) {

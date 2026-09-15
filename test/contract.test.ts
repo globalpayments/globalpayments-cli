@@ -187,6 +187,7 @@ describe('contract: manifest', () => {
         'auth.test',
         'cases.list',
         'cases.show',
+        'diagnose',
         'doctor',
         'explain',
         'init',

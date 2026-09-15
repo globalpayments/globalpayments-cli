@@ -17,5 +17,9 @@ export const ENVELOPE_SCHEMA_VERSION = 1;
 /**
  * Version of the persisted run-result artifact written to `.globalpayments/results/`.
  * Independent of the envelope version: artifacts outlive invocations.
+ *
+ * v2 adds `cases[].diagnosis` — the field-level cause and remediation for every
+ * non-passing case. Additive, but bumped so `report` and `diagnose` can tell a
+ * pre-diagnosis artifact from a run that genuinely had nothing to fix.
  */
-export const RESULT_SCHEMA_VERSION = 1;
+export const RESULT_SCHEMA_VERSION = 2;

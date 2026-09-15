@@ -111,7 +111,7 @@ made catalog output and result output impossible to correlate.
 If you need an address, call `caseAddress(packId, caseId)`. It is idempotent.
 
 The same address string identifies the same case in `cases list`, `cases show`, `run`,
-`watch`, and `report`. That correlation is a guarantee — do not break it.
+`watch`, `report`, and `diagnose`. That correlation is a guarantee — do not break it.
 
 ---
 
@@ -134,17 +134,47 @@ separate checks, each with its own code and remediation. Debugging those from a 
 ### Diagnosing a non-passing case
 
 ```bash
-globalpayments report --json                                # per-case reasons
-globalpayments cases show <packId>:<caseId> --json          # the matcher and expectation
+globalpayments diagnose --json                              # why, at field level, plus an ordered fix plan
+globalpayments diagnose <packId>:<caseId> --json            # narrow to one case
+globalpayments cases show <packId>:<caseId> --json          # the raw matcher and expectation
 ```
 
-Read `data.observation.transactionsObserved` first:
+`report` tells you a case is red. `diagnose` tells you *which field* missed and *what to
+send instead*. It reads the persisted artifact, so it needs no credentials and makes no
+network calls, and it exits `0` even when the run it describes failed — it is an
+inspection command, safe to call inside a fix loop.
 
-- **`0`** → nothing was in the polling window at all. Send transactions, or widen
-  `polling.lookbackMinutes`. Nothing else will help.
-- **`> 0` with `pending` cases** → transactions arrived but none matched the case's
-  `matcher`. Compare the matcher against what you actually sent.
-- **`fail` cases** → a transaction matched but violated `expect`. Read `reason`.
+Read `data.fixPlan` first. It is every fix across every non-passing case, flattened and
+ordered most-specific-first. Each entry carries `field`, `currentValue`, and
+`requiredValue`, so it can be applied without parsing the `instruction` prose.
+
+Then `data.cases[].diagnosis.code` tells you the shape of the problem:
+
+- **`OBSERVATION_FAILED`** → the poll itself failed, so nothing could be observed and no
+  other verdict in the run means anything. Run `globalpayments doctor --json` and repair
+  credentials or connectivity, then re-run. Do not touch your integration.
+- **`NO_TRANSACTIONS_OBSERVED`** → nothing was in the polling window at all. Send
+  transactions, or widen `polling.lookbackMinutes`. Nothing else will help.
+- **`NO_NEAR_MATCH`** → transactions arrived, but none shares a field with this case.
+  The scenario has not been sent. `requiredRequest.send` is the request to build.
+- **`MATCHER_MISMATCH`** → something came close. `nearMisses[0].mismatchedFields` names
+  the exact fields that differed, with expected and observed values.
+- **`EXPECTATION_VIOLATED`** → a transaction matched but its outcome was wrong.
+  `expectationDeltas` gives the per-field verdict.
+- **`AMBIGUOUS_MATCH`** → two equally recent transactions matched. Re-send the scenario
+  once, alone, with a distinct reference.
+
+Two things the diagnosis deliberately will not do:
+
+- It never blames `reference`. The matcher's strategy ladder ends in `composite`, which
+  ignores `reference` entirely, so a reference mismatch can never cause a miss. Those
+  deltas appear in `nearMisses[].advisoryFields` and only ever produce `low`-confidence
+  fixes.
+- It never tells a `DECLINED` transaction how to reach `CAPTURED`. A decline never
+  authorized, so the only useful remedy is to obtain an approval first.
+
+`run` and `report` surface `fixes[0]` inline for each non-passing case; `diagnose` is
+where the full breakdown lives.
 
 ### CI gate
 
@@ -198,9 +228,12 @@ src/contract/          LAYER 1 — the boundary. Envelope, error taxonomy, exit 
 
 src/core/ids.ts        LAYER 0 — identity. The ONLY place a case address is built.
 
-src/types/domain.ts    LAYER 2 — the single domain vocabulary.
+src/types/domain.ts    LAYER 2 — the single domain vocabulary, including the
+                                 diagnosis types. Imports nothing above it.
 src/core/types.ts               matching-only types; re-exports the rest.
 
+src/core/diagnosis.ts  LAYER 3 — pure: why a case is red and what to change. No I/O,
+                                 no clock. The ONLY place a diagnosis is built.
 src/core/session.ts    LAYER 3 — one bootstrap: env → config → packs → auth →
                                  client → engine, plus result collection.
 
@@ -220,9 +253,13 @@ src/commands/packs     LAYER 5 — discovery.
    in a command.
 3. **Only `ids.ts` builds addresses.** Never write `` `${packId}:${caseId}` `` anywhere
    else.
-4. **`run` and `watch` share `session.ts`.** They differ only in live rendering. If you
+4. **`diagnosis.ts` must never contradict `matching.ts` or `evaluator.ts`.** It is a
+   second reading of the same rules, so a drift between them produces remediation that
+   argues with the verdict. Two invariants encode this: only composite fields are
+   `blocking`, and a `responseCode` delta is `satisfied` when the field is absent.
+5. **`run` and `watch` share `session.ts`.** They differ only in live rendering. If you
    change how a run is set up or collected, change it once, in the session.
-5. **Nothing in `src/contract/` imports from `src/commands/`.** The contract does not
+6. **Nothing in `src/contract/` imports from `src/commands/`.** The contract does not
    know what commands exist; `manifest.ts` receives the program as an argument.
 
 ---
@@ -260,7 +297,7 @@ or a real description — that is intentional.
 
 ```bash
 npm run verify    # typecheck + tests + build + build-level smoke. Use this.
-npm test          # vitest, 159 tests
+npm test          # vitest, 201 tests
 npm run typecheck # tsc --noEmit, strict
 npm run build     # tsup → dist/, copies src/packs → dist/packs
 npm run smoke     # contract checks against dist/bin.js (needs a build; no network)
@@ -294,3 +331,22 @@ next build.
   case. Do not "fix" this into a hard failure.
 - The polling window is bounded. Transactions older than
   `polling.lookbackMinutes` are invisible, no matter how long you watch.
+- `matchesByStrategy` ends its ladder at `composite`, which ignores `reference`
+  entirely. A reference mismatch therefore never prevents a match, and `diagnosis.ts`
+  classifies those deltas as advisory. Do not "fix" them into blocking mismatches
+  without first making the matcher enforce them.
+- A diagnosis is attached only to non-passing cases, and rebuilt from scratch each
+  cycle. A case that turns green drops its diagnosis; never treat the field's absence
+  as "not yet diagnosed" without also checking `status`.
+- `cardBrand` and `last4` arrive under two spellings — top level and nested under
+  `paymentMethod`. Read them only through `observedCardBrand` / `observedLast4` in
+  `matching.ts`. Reading a raw field in one file and the accessor in the other lets the
+  matcher reject a transaction the diagnosis scores as perfect.
+- The engine swallows a failed poll and continues with zero transactions, so "no
+  transactions observed" and "we could not look" are indistinguishable from the
+  transaction list alone. `pollFailed` is what separates them, and it must reach
+  `diagnoseCase` — otherwise a credentials outage is reported as an integration bug.
+- A recoverable poll failure is emitted as `pollError`, **never** as `error`. Node
+  throws when an `error` event has no listener, so the reserved name turned a swallowed
+  403 into an `E_INTERNAL` crash and made `OBSERVATION_FAILED` unreachable. Do not
+  rename it back.
