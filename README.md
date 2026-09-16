@@ -45,6 +45,10 @@ See **[AGENTS.md](AGENTS.md)** for the full contract, invariants, and architectu
 | 6 | `NOT_FOUND` | Unknown pack, case, or result artifact |
 | 7 | `INTERNAL` | Bug in globalpayments |
 
+Exit `1` means the window was read and the cases were judged. If polling never succeeded
+at all, `run` reports the underlying cause (`4` or `5`) instead, so a credentials outage
+is never mistaken for a failed certification.
+
 ## Installation
 
 ### Via npm (published package)

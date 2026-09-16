@@ -1,5 +1,6 @@
 import { EXIT_CODES, type ExitCode } from './exit-codes.js';
 import { ConfigLoadError } from '../config/load.js';
+import { TransactionsApiError } from '../gpapi/transactions.js';
 import {
   AuthFailureError,
   InvalidCredentialsError,
@@ -182,6 +183,36 @@ export function toGlobalPaymentsError(error: unknown): GlobalPaymentsError {
       details: { status: error.status, ...(error.code ? { gpErrorCode: error.code } : {}) },
       cause: error
     });
+  }
+
+  // A rejection from /transactions, not from the auth handshake. Tokens are cached, so
+  // a revoked app or an unpermitted account surfaces here rather than as an
+  // InvalidCredentialsError, and without this branch it would fall through to
+  // E_INTERNAL — telling the caller to report a bug in this tool for what is actually
+  // their credentials or a transient outage.
+  if (error instanceof TransactionsApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return new GlobalPaymentsError(ERROR_CODES.E_AUTH_INVALID_CREDENTIALS, error.message, {
+        details: { status: error.status },
+        cause: error
+      });
+    }
+
+    if (error.retriable || error.status >= 500 || error.status === 0) {
+      return new GlobalPaymentsError(ERROR_CODES.E_NETWORK, error.message, {
+        details: { status: error.status, retriable: error.retriable },
+        cause: error
+      });
+    }
+
+    // Any other status is a request this tool constructed being rejected on its
+    // merits, which is a defect here. Fall through to E_INTERNAL deliberately.
+  }
+
+  // `fetch` rejects with a TypeError when the host is unreachable, DNS fails, or the
+  // connection is refused. That is the textbook retryable network fault, not a bug.
+  if (error instanceof TypeError && /fetch failed|network|ENOTFOUND|ECONNREFUSED/i.test(error.message)) {
+    return new GlobalPaymentsError(ERROR_CODES.E_NETWORK, error.message, { cause: error });
   }
 
   const message = error instanceof Error ? error.message : String(error);

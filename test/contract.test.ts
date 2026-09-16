@@ -16,6 +16,7 @@ import { EXIT_CODES, exitCodeName } from '../src/contract/exit-codes.js';
 import { buildManifest } from '../src/contract/manifest.js';
 import { CLI_VERSION } from '../src/contract/version.js';
 import { ConfigLoadError } from '../src/config/load.js';
+import { TransactionsApiError } from '../src/gpapi/transactions.js';
 import { InvalidCredentialsError, NetworkAuthError, MalformedAuthResponseError } from '../src/gpapi/auth.js';
 
 function captureStream(): { stream: NodeJS.WritableStream; text: () => string } {
@@ -152,6 +153,38 @@ describe('contract: error taxonomy', () => {
     expect(toGlobalPaymentsError(new MalformedAuthResponseError('weird')).code).toBe('E_AUTH_MALFORMED_RESPONSE');
     expect(toGlobalPaymentsError(new Error('Pack "x" not found. Searched: /a')).code).toBe('E_PACK_NOT_FOUND');
     expect(toGlobalPaymentsError(new Error('Parent pack not found: base')).code).toBe('E_PACK_NOT_FOUND');
+  });
+
+  // Tokens are cached, so a revoked app or an unpermitted account is rejected by
+  // /transactions rather than by the auth handshake. Before these branches existed,
+  // both landed on E_INTERNAL — exit 7, "report a bug in globalpayments" — for what is
+  // really the caller's credentials or a transient outage.
+  it('classifies a transactions rejection by what the caller can do about it', () => {
+    expect(toGlobalPaymentsError(new TransactionsApiError('403', 403, false)).code).toBe(
+      'E_AUTH_INVALID_CREDENTIALS'
+    );
+    expect(toGlobalPaymentsError(new TransactionsApiError('401', 401, false)).code).toBe(
+      'E_AUTH_INVALID_CREDENTIALS'
+    );
+    expect(toGlobalPaymentsError(new TransactionsApiError('503', 503, true)).code).toBe('E_NETWORK');
+    expect(toGlobalPaymentsError(new TransactionsApiError('429', 429, true)).code).toBe('E_NETWORK');
+  });
+
+  it('keeps a retryable transactions failure on the retryable exit code', () => {
+    expect(toGlobalPaymentsError(new TransactionsApiError('503', 503, true)).exitCode).toBe(EXIT_CODES.NETWORK);
+  });
+
+  // A 400 is a request this tool built being rejected on its merits. That is a defect
+  // here, and E_INTERNAL is the honest answer rather than blaming the network.
+  it('still treats a malformed transactions request as an internal defect', () => {
+    expect(toGlobalPaymentsError(new TransactionsApiError('bad query', 400, false)).code).toBe('E_INTERNAL');
+  });
+
+  it('classifies an unreachable host as retryable network, not an internal bug', () => {
+    expect(toGlobalPaymentsError(new TypeError('fetch failed')).code).toBe('E_NETWORK');
+    expect(toGlobalPaymentsError(new TypeError('request to x failed, reason: ECONNREFUSED')).code).toBe('E_NETWORK');
+    // An ordinary programming TypeError must stay an internal bug.
+    expect(toGlobalPaymentsError(new TypeError('x is not a function')).code).toBe('E_INTERNAL');
   });
 
   it('is idempotent so wrapping never loses classification', () => {

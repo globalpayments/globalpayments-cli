@@ -12,9 +12,13 @@ import {
   createSession,
   isRequiredCase,
   resolveSelection,
+  trackObservation,
   type CertificationSession
 } from '../src/core/session.js';
-import { ERROR_CODES } from '../src/contract/errors.js';
+import { EventEmitter } from 'node:events';
+import { InvalidCredentialsError, NetworkAuthError } from '../src/gpapi/auth.js';
+import { TransactionsApiError } from '../src/gpapi/transactions.js';
+import { ERROR_CODES, toGlobalPaymentsError } from '../src/contract/errors.js';
 import { RESULT_SCHEMA_VERSION } from '../src/contract/version.js';
 import type { CertificationPack, ObserverConfig, ResolvedObserverConfig } from '../src/types/domain.js';
 
@@ -174,5 +178,117 @@ describe('session: discovery works without credentials', () => {
     await expect(createSession({ cert: 'global-core', envFile: emptyEnvFile })).rejects.toMatchObject({
       code: ERROR_CODES.E_AUTH_MISSING_CREDENTIALS
     });
+  });
+});
+
+describe('observation tracking', () => {
+  const makeEngine = () => new EventEmitter() as unknown as CertificationEngine;
+
+  it('reports no observation error when every poll succeeded', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+
+    engine.emit('cycleComplete', { pollFailed: false });
+
+    expect(observation.observed).toBe(true);
+    expect(observation.lastPollError).toBeUndefined();
+    expect(observation.observationError()).toBeUndefined();
+  });
+
+  // A blip is not a verdict-invalidating event. If any cycle read the window, the
+  // run has real evidence and the certification tally is the honest answer.
+  it('does not escalate when a later poll recovered', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+
+    engine.emit('pollError', { message: 'boom', error: new Error('boom') });
+    engine.emit('cycleComplete', { pollFailed: true });
+    engine.emit('cycleComplete', { pollFailed: false });
+
+    expect(observation.observed).toBe(true);
+    expect(observation.lastPollError).toBe('boom');
+    expect(observation.observationError()).toBeUndefined();
+  });
+
+  // Rejected credentials are not a certification result. Exiting 1 here would tell a
+  // CI gate the merchant is uncertified when in truth nothing was ever examined.
+  it('escalates rejected credentials to AUTH, not CERT_FAILED', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+
+    engine.emit('pollError', {
+      message: 'Failed to fetch transactions',
+      error: new InvalidCredentialsError('GP API auth request failed (403)', 403)
+    });
+    engine.emit('cycleComplete', { pollFailed: true });
+
+    const error = observation.observationError();
+
+    expect(observation.observed).toBe(false);
+    expect(error?.code).toBe(ERROR_CODES.E_AUTH_INVALID_CREDENTIALS);
+    expect(error?.exitCode).toBe(4);
+    expect(error?.details).toMatchObject({ observationFailed: true });
+    expect(error?.message).toContain('never read');
+  });
+
+  // Unreachable is retryable; CERT_FAILED is not. Collapsing the two would make a
+  // transient outage indistinguishable from a real certification gap.
+  it('escalates an unreachable API to NETWORK so callers know to retry', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+
+    engine.emit('pollError', {
+      message: 'Failed to fetch transactions',
+      error: new NetworkAuthError('connect ECONNREFUSED')
+    });
+    engine.emit('cycleComplete', { pollFailed: true });
+
+    const error = observation.observationError();
+
+    expect(error?.code).toBe(ERROR_CODES.E_NETWORK);
+    expect(error?.exitCode).toBe(5);
+  });
+
+  // The production path: the auth handshake succeeds (tokens are cached), then
+  // /transactions rejects. This is the shape that actually reaches users, and it must
+  // not be reported as a bug in this tool.
+  it('escalates a /transactions 403 to AUTH rather than an internal bug', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+
+    engine.emit('pollError', {
+      message: 'Failed to fetch transactions',
+      error: new TransactionsApiError('GP API transactions request failed (403)', 403, false)
+    });
+    engine.emit('cycleComplete', { pollFailed: true });
+
+    const error = observation.observationError();
+
+    expect(error?.code).toBe(ERROR_CODES.E_AUTH_INVALID_CREDENTIALS);
+    expect(error?.exitCode).toBe(4);
+  });
+
+  it('escalates an exhausted 503 to the retryable NETWORK code', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+
+    engine.emit('pollError', {
+      message: 'Failed to fetch transactions',
+      error: new TransactionsApiError('GP API transactions request failed (503)', 503, true)
+    });
+    engine.emit('cycleComplete', { pollFailed: true });
+
+    expect(observation.observationError()?.exitCode).toBe(5);
+  });
+
+  it('preserves the classified remediation rather than inventing its own', () => {
+    const engine = makeEngine();
+    const observation = trackObservation(engine);
+    const cause = new InvalidCredentialsError('nope', 403);
+
+    engine.emit('pollError', { message: 'Failed to fetch transactions', error: cause });
+    engine.emit('cycleComplete', { pollFailed: true });
+
+    expect(observation.observationError()?.remediation).toBe(toGlobalPaymentsError(cause).remediation);
   });
 });

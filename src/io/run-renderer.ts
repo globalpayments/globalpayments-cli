@@ -8,6 +8,7 @@ export interface RunObservationLike {
   transactionsObserved: number;
   timedOut: boolean;
   elapsedMs: number;
+  observationFailed?: boolean;
 }
 
 export interface RunViewModel extends RunResult {
@@ -40,6 +41,19 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
   const pending = view.cases.filter((c) => c.status === 'pending');
   const failed = view.cases.filter((c) => c.status === 'fail');
   const diagnosed = view.cases.filter((c) => c.status !== 'pass' && c.diagnosis !== undefined);
+
+  // A failed poll invalidates every other conclusion, so it is the only action worth
+  // offering. Suggesting the caller send transactions here would send them to fix an
+  // integration that was never examined.
+  if (view.observation.observationFailed) {
+    return [
+      {
+        reason:
+          'The certification window was never read, so no case verdict in this run is meaningful. Isolate whether config, credentials, or connectivity is at fault before changing anything.',
+        command: 'globalpayments doctor --json'
+      }
+    ];
+  }
 
   if (diagnosed.length > 0) {
     actions.push({
@@ -91,8 +105,13 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
   log(`  Environment: ${pc.blue(view.environment)}`);
   log(`  Packs:       ${pc.cyan(view.activePacks.join(', '))}`);
   log(
-    `  Verdict:     ${view.verdict === 'passed' ? pc.green('PASSED') : pc.red('FAILED')} ` +
-      pc.gray(`(${view.required.passing}/${view.required.total} required passing)`)
+    `  Verdict:     ${
+      view.observation.observationFailed
+        ? pc.yellow('UNEVALUATED') + ' ' + pc.gray('(the window was never read)')
+        : (view.verdict === 'passed' ? pc.green('PASSED') : pc.red('FAILED')) +
+          ' ' +
+          pc.gray(`(${view.required.passing}/${view.required.total} required passing)`)
+    }`
   );
   log(
     `  Cases:       ${pc.green(`${view.summary.pass} pass`)}, ${pc.red(`${view.summary.fail} fail`)}, ` +
@@ -120,7 +139,18 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
     log(pc.gray('Field-level causes and the full fix plan: ') + pc.yellow('globalpayments diagnose'));
   }
 
-  if (view.observation.transactionsObserved === 0) {
+  // "Nothing was sent" and "we could not look" both show zero transactions. Only the
+  // first is the caller's to act on.
+  if (view.observation.observationFailed) {
+    log();
+    log(
+      pc.yellow('The certification window was never read, so no verdict above is meaningful.') +
+        '\n' +
+        pc.gray('Do not change your integration in response to this. Run ') +
+        pc.yellow('globalpayments doctor') +
+        pc.gray(' to isolate config, credentials, or connectivity.')
+    );
+  } else if (view.observation.transactionsObserved === 0) {
     log();
     log(pc.yellow('No transactions were observed. globalpayments observes only; it never creates transactions.'));
   }

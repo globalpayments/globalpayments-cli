@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { runCommand, type CommandOutcome } from '../contract/emit.js';
-import { certificationError, collectRunResult, createSession } from '../core/session.js';
+import { certificationError, collectRunResult, createSession, trackObservation } from '../core/session.js';
 import { persistRunResult } from '../core/result-store.js';
 import { parseDuration, formatDuration } from '../util/index.js';
 import { InteractiveWatchController } from '../io/interactive-watch.js';
@@ -65,6 +65,7 @@ export function registerWatchCommand(program: Command): void {
         let pollCycles = 0;
         let timedOut = false;
         const startedAt = Date.now();
+        const observation = trackObservation(session.engine);
 
         session.engine.on('cycleComplete', (event) => {
           pollCycles += 1;
@@ -105,7 +106,6 @@ export function registerWatchCommand(program: Command): void {
             console.error(pc.red('poll error:'), event.message);
           }
         });
-
         controller?.start(session.engine.getCaseStates());
         try {
           await session.engine.watch({ maxTimeoutMs: timeoutMs, signal: abortController.signal });
@@ -122,7 +122,8 @@ export function registerWatchCommand(program: Command): void {
             pollCycles,
             transactionsObserved,
             timedOut,
-            elapsedMs: Date.now() - startedAt
+            elapsedMs: Date.now() - startedAt,
+            observationFailed: observation.failed
           },
           artifacts: { latest: paths.latestPath, history: paths.historyPath }
         };
@@ -133,7 +134,7 @@ export function registerWatchCommand(program: Command): void {
           render: (value) => renderRunSummary(value, console.log)
         };
 
-        const certError = certificationError(result);
+        const certError = observation.observationError() ?? certificationError(result);
         if (certError) {
           outcome.error = certError;
         }

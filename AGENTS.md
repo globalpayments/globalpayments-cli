@@ -95,6 +95,13 @@ into a parser.
 Exit `1` is the one to think carefully about: the tool worked perfectly and is telling
 you the merchant is not yet certified. Do not treat it as a failure of the tool.
 
+Its precondition is that the window was actually read. If **no** polling cycle ever
+succeeded, `run` and `watch` report the underlying cause instead — `4` for rejected
+credentials, `5` for an unreachable API — because nothing was observed and therefore
+no case was genuinely disproved. Exit `1` always means evidence was gathered and judged.
+A cycle that fails and then recovers is only a `W_POLL_FAILED` warning; the run still
+has evidence, so the case tally stands.
+
 ---
 
 ## 5. Identity: case addresses
@@ -181,6 +188,9 @@ where the full breakdown lives.
 ```bash
 globalpayments run --cert <packId> --json    # exit 0 = certified, 1 = not
 ```
+
+Treat only `0` and `1` as verdicts. Any other exit code means the gate never reached a
+conclusion: `5` is worth retrying, `3` and `4` are misconfiguration in the job itself.
 
 ---
 

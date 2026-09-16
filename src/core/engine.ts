@@ -72,6 +72,15 @@ export interface EnginePollResult {
   stateTransitions: StateTransition[];
   cases: CaseRunState[];
   recentTransactions: TransactionRecord[];
+  /**
+   * True when the window could not be read at all this cycle.
+   *
+   * `transactionsFetched: 0` is ambiguous on its own — it means either "nothing was
+   * sent" or "we could not look". Callers deciding an exit code need to tell those
+   * apart, so the distinction is carried on the result rather than reconstructed from
+   * event ordering.
+   */
+  pollFailed: boolean;
 }
 
 /**
@@ -251,7 +260,8 @@ export class CertificationEngine extends EventEmitter {
       casesEvaluated: this.allCases.length,
       stateTransitions,
       cases: this.getCaseStates(),
-      recentTransactions: transactions.slice(0, 5)
+      recentTransactions: transactions.slice(0, 5),
+      pollFailed
     };
 
     this.emit('cycleComplete', result);

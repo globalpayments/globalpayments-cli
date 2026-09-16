@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { runCommand, type CommandOutcome } from '../contract/emit.js';
-import { certificationError, collectRunResult, createSession } from '../core/session.js';
+import { certificationError, collectRunResult, createSession, trackObservation } from '../core/session.js';
 import { persistRunResult } from '../core/result-store.js';
 import { parseDuration } from '../util/index.js';
 import { renderRunSummary, buildRunNextActions } from '../io/run-renderer.js';
@@ -12,6 +12,11 @@ export interface RunObservation {
   transactionsObserved: number;
   timedOut: boolean;
   elapsedMs: number;
+  /**
+   * True when no polling cycle ever read the window. Every case is then pending for
+   * want of evidence rather than because it was disproved.
+   */
+  observationFailed?: boolean;
 }
 
 export interface RunCommandData extends RunResult {
@@ -53,8 +58,8 @@ export function registerRunCommand(program: Command): void {
         let transactionsObserved = 0;
         let pollCycles = 0;
         let timedOut = false;
-        let lastPollError: string | undefined;
         const startedAt = Date.now();
+        const observation = trackObservation(session.engine);
 
         session.engine.on('cycleComplete', (event: { transactionsFetched: number }) => {
           pollCycles += 1;
@@ -62,11 +67,6 @@ export function registerRunCommand(program: Command): void {
         });
         session.engine.on('watchTimeout', () => {
           timedOut = true;
-        });
-        // Polling failures are recoverable and do not abort the run, but they must not
-        // be silent: without this the caller sees every case pending and no reason why.
-        session.engine.on('pollError', (event: { message: string }) => {
-          lastPollError = event.message;
         });
 
         await session.engine.watch({ maxTimeoutMs: timeoutMs });
@@ -80,7 +80,8 @@ export function registerRunCommand(program: Command): void {
             pollCycles,
             transactionsObserved,
             timedOut,
-            elapsedMs: Date.now() - startedAt
+            elapsedMs: Date.now() - startedAt,
+            observationFailed: observation.failed
           },
           artifacts: { latest: paths.latestPath, history: paths.historyPath }
         };
@@ -91,16 +92,18 @@ export function registerRunCommand(program: Command): void {
           render: (value) => renderRunSummary(value, console.log)
         };
 
-        if (lastPollError) {
+        if (observation.lastPollError) {
           outcome.warnings = [
             {
               code: 'W_POLL_FAILED',
-              message: `${lastPollError}. Cases could not be observed this run; verify with \`globalpayments doctor --json\`.`
+              message: `${observation.lastPollError}. Verify with \`globalpayments doctor --json\`.`
             }
           ];
         }
 
-        const certError = certificationError(result);
+        // Order matters. A run that never read the window has no certification verdict
+        // to report, so the observation failure outranks the case tally.
+        const certError = observation.observationError() ?? certificationError(result);
         if (certError) {
           outcome.error = certError;
         }
