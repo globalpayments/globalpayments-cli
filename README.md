@@ -45,6 +45,10 @@ See **[AGENTS.md](AGENTS.md)** for the full contract, invariants, and architectu
 | 6 | `NOT_FOUND` | Unknown pack, case, or result artifact |
 | 7 | `INTERNAL` | Bug in globalpayments |
 
+Exit `1` means the window was read and the cases were judged. If polling never succeeded
+at all, `run` reports the underlying cause (`4` or `5`) instead, so a credentials outage
+is never mistaken for a failed certification.
+
 ## Installation
 
 ### Via npm (published package)
@@ -113,6 +117,13 @@ npx @globalpayments/cli run --config .globalpayments/config.yaml --timeout 5m --
 ```bash
 npx @globalpayments/cli report --input .globalpayments/results/latest.json
 # Pretty-prints pass/fail summary with reasons
+```
+
+### 5. Turn red cases green
+```bash
+npx @globalpayments/cli diagnose
+# For every non-passing case: which field missed, what the closest observed
+# transaction looked like, and the exact change to make to your request.
 ```
 
 ## CLI Commands
@@ -205,7 +216,7 @@ globalpayments cases list --cert global-core
 ```
 
 Case addresses are formatted `<packId>:<caseId>` and are identical across
-`cases list`, `cases show`, `run`, `watch`, and `report`.
+`cases list`, `cases show`, `run`, `watch`, `report`, and `diagnose`.
 
 ---
 
@@ -295,6 +306,66 @@ when the artifact's `schemaVersion` does not match the one this build expects.
 globalpayments report --json
 ```
 
+---
+
+### `globalpayments diagnose`
+Explain why cases are not passing and what to change in the request to make them pass.
+Reads the last persisted result, so it performs no network calls and needs no
+credentials.
+
+`report` tells you a case is red. `diagnose` tells you why, at field level, and what to
+send instead.
+
+For each non-passing case it reports:
+
+- **`code`** — the stable cause: `OBSERVATION_FAILED`, `NO_TRANSACTIONS_OBSERVED`,
+  `NO_NEAR_MATCH`, `MATCHER_MISMATCH`, `EXPECTATION_VIOLATED`, or `AMBIGUOUS_MATCH`
+- **`nearMisses`** — the closest transactions actually observed, scored, with the exact
+  matcher fields that differed and their expected vs observed values
+- **`fixes`** — ordered corrective actions, each carrying `field`, `currentValue`, and
+  `requiredValue` so an automated caller never parses prose
+- **`requiredRequest`** — the canonical request that satisfies the case, and the outcome
+  it must produce
+- **`fixPlan`** (top level) — every fix across every case, flattened and ordered
+  most-specific-first. Apply it top to bottom.
+
+**Arguments:**
+- `[caseAddress]` — Restrict to one case, formatted `<packId>:<caseId>`
+
+**Options:**
+- `--input <path>` — Result JSON file (default: `.globalpayments/results/latest.json`)
+- `--json` — Machine-readable output
+
+**Example:**
+```bash
+globalpayments diagnose --json
+globalpayments diagnose global-ecommerce:3ds-challenge --json
+```
+
+Typical output for a case that saw no match:
+
+```
+○ global-ecommerce:3ds-challenge  MATCHER_MISMATCH
+    No transaction matched. The closest one (id TRN_ccc) satisfied 2 of 3 matcher
+    field(s); `amount` differs.
+
+    closest observed: TRN_ccc — 2/3 matcher fields, 67%
+      ✓ type
+      ✓ channel
+      ✗ amount  expected 2002  observed 1001
+
+    to turn this green:
+      1. [high] Set `amount` to 2002 in the request you send. The closest observed
+         transaction (id TRN_ccc) used 1001.
+```
+
+Because `globalpayments` only observes, every fix is an instruction about the transaction
+**you** send — never a change to this tool.
+
+Note that `diagnose` exits `0` even when the run it is reading failed: it is a
+read-only inspection command, so it stays usable inside a fix loop. Branch on
+`globalpayments run` for pass/fail.
+
 ## Configuration
 
 ### Config File Format
@@ -366,6 +437,8 @@ Each polling cycle:
 **If no transactions match:**
 - Case remains pending (no fail)
 - If timeout is reached, case is reported pending with a "no matches found" reason
+- The case carries a `diagnosis` naming the closest observed transaction and the exact
+  matcher field that differed. Read it with `globalpayments diagnose`.
 
 **If multiple matches exist:**
 - Only the newest match (by `timeCreated`) is used for evaluation

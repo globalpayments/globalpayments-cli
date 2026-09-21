@@ -10,6 +10,7 @@ import { registerCasesCommands } from './commands/cases/index.js';
 import { registerWatchCommand } from './commands/watch.js';
 import { registerRunCommand } from './commands/run.js';
 import { registerReportCommand } from './commands/report.js';
+import { registerDiagnoseCommand } from './commands/diagnose.js';
 
 /**
  * Assemble the CLI.
@@ -44,6 +45,7 @@ export function buildCli(): Command {
 
   // Review
   registerReportCommand(program);
+  registerDiagnoseCommand(program);
 
   return program;
 }

@@ -9,7 +9,7 @@ import { loadEvaluators, loadPackEvaluators } from './evaluator.js';
 import { enrichCasesWithDiagnostics } from './diagnostics.js';
 import { redactObject } from './redaction.js';
 import { caseAddress } from './ids.js';
-import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
+import { GlobalPaymentsError, ERROR_CODES, toGlobalPaymentsError } from '../contract/errors.js';
 import { RESULT_SCHEMA_VERSION } from '../contract/version.js';
 import type { CaseRunState } from './engine.js';
 import type {
@@ -150,7 +150,8 @@ export async function collectRunResult(
     status: state.status,
     reason: state.reason,
     latestMatch: state.latestMatch,
-    matchedCount: state.matchedCount
+    matchedCount: state.matchedCount,
+    ...(state.diagnosis ? { diagnosis: state.diagnosis } : {})
   }));
 
   if (!options.skipDiagnostics) {
@@ -193,6 +194,81 @@ export async function collectRunResult(
     },
     cases,
     redactedConfig: redactObject(session.config as unknown as Record<string, unknown>)
+  };
+}
+
+/**
+ * Watches an engine's polling for the one condition that invalidates a verdict:
+ * never having successfully read the window.
+ *
+ * A single failed cycle is not interesting — the next one usually succeeds, and the
+ * run still has real data to judge. What matters is whether *any* cycle observed the
+ * window. If none did, every case is pending for want of evidence, and reporting that
+ * as a certification failure would tell the caller to go fix an integration that was
+ * never actually examined.
+ *
+ * Shared so `run` and `watch` cannot reach different conclusions from the same events.
+ */
+export interface ObservationTracker {
+  /** True once any cycle has successfully read the window. */
+  readonly observed: boolean;
+  /** True when polling failed and never once recovered, making the run unjudgeable. */
+  readonly failed: boolean;
+  /** Human-readable text for the most recent polling failure, if any. */
+  readonly lastPollError: string | undefined;
+  /**
+   * The error that should decide the exit code, or undefined when the run is
+   * judgeable. Classifies the underlying cause, so rejected credentials exit `AUTH`
+   * and an unreachable API exits `NETWORK` (retryable) rather than both masquerading
+   * as `CERT_FAILED`.
+   */
+  observationError(): GlobalPaymentsError | undefined;
+}
+
+export function trackObservation(engine: CertificationEngine): ObservationTracker {
+  let observed = false;
+  let lastPollError: string | undefined;
+  let lastPollCause: unknown;
+
+  engine.on('cycleComplete', (event: { pollFailed?: boolean }) => {
+    if (!event.pollFailed) {
+      observed = true;
+    }
+  });
+
+  // Deliberately not the reserved 'error' event; see engine.runOnce.
+  engine.on('pollError', (event: { message: string; error?: unknown }) => {
+    lastPollError = event.message;
+    lastPollCause = event.error;
+  });
+
+  return {
+    get observed() {
+      return observed;
+    },
+    get failed() {
+      return !observed && lastPollCause !== undefined;
+    },
+    get lastPollError() {
+      return lastPollError;
+    },
+    observationError() {
+      if (!this.failed) {
+        return undefined;
+      }
+
+      const classified = toGlobalPaymentsError(lastPollCause);
+      const separator = /[.!?]$/.test(classified.message) ? ' ' : '. ';
+      return new GlobalPaymentsError(
+        classified.code,
+        `${classified.message}${separator}The certification window was never read, so no case verdict in this run is meaningful.`,
+        {
+          remediation: classified.remediation,
+          details: { ...classified.details, observationFailed: true },
+          cause: lastPollCause
+        }
+      );
+    }
   };
 }
 

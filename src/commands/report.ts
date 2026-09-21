@@ -45,7 +45,16 @@ function renderReport(data: ReportData): void {
       if (caze.latestMatch) {
         console.log(pc.gray(`      matched ${caze.latestMatch.reference ?? caze.latestMatch.id}`));
       }
+      const topFix = caze.diagnosis?.fixes[0];
+      if (topFix) {
+        console.log(`      ${pc.yellow('fix:')} ${topFix.instruction}`);
+      }
     }
+  }
+
+  if (data.cases.some((caze) => caze.diagnosis !== undefined)) {
+    console.log();
+    console.log(pc.gray('Field-level causes and the full fix plan: ') + pc.yellow('globalpayments diagnose'));
   }
   console.log();
 }
@@ -92,7 +101,16 @@ export function registerReportCommand(program: Command): void {
         return {
           data: { ...parsed, sourcePath: options.input } satisfies ReportData,
           warnings,
-          render: renderReport
+          render: renderReport,
+          nextActions:
+            parsed.verdict === 'passed'
+              ? []
+              : [
+                  {
+                    reason: 'Get the field-level cause and an ordered fix plan for every non-passing case.',
+                    command: 'globalpayments diagnose --json'
+                  }
+                ]
         };
       });
     });

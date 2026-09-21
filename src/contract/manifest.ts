@@ -86,6 +86,10 @@ export const CONCEPTS: Record<string, string> = {
     'Cases are matched to transactions by the most specific available strategy, in order: exact-reference, reference-prefix, composite. The most recent matching transaction wins ("latest-match-wins").',
   status:
     "Per-case outcome. 'pass' = the latest match satisfied the expectation. 'fail' = a match was found but violated it. 'pending' = no matching transaction was observed at all.",
+  diagnosis:
+    "Attached to every non-passing case as `cases[].diagnosis`. Explains the failure at field level and states what to change in the request. `code` is the stable cause category; `nearMisses[].mismatchedFields` names the exact matcher fields that differed and their expected vs observed values; `fixes` is an ordered list of corrective actions, each with `field`, `currentValue`, and `requiredValue` so it can be applied without parsing prose; `requiredRequest` is the canonical request that satisfies the case. Read it with `globalpayments diagnose`.",
+  fixPlan:
+    'The flattened, ordered list of every fix across every non-passing case, emitted by `globalpayments diagnose` as `data.fixPlan`. Apply it top to bottom: entries are sorted most-specific-first, so a concrete field change always precedes generic advice.',
   verdict:
     "Whole-run outcome. 'passed' only when every required case is passing. Optional case failures do not change the verdict or the exit code.",
   window:
@@ -118,11 +122,36 @@ export const WORKFLOWS: Workflow[] = [
   },
   {
     id: 'diagnose-failure',
-    goal: 'Understand why a case is not passing.',
+    goal: 'Understand why a case is not passing and what to change to make it pass.',
     steps: [
-      { command: 'globalpayments report --json', purpose: 'Read the last persisted result and its per-case reasons.' },
-      { command: 'globalpayments cases show <packId>:<caseId> --json', purpose: 'Read the matcher and expectation the case enforces.' },
+      {
+        command: 'globalpayments diagnose --json',
+        purpose:
+          'Field-level cause plus an ordered fix plan for every non-passing case. Offline: reads the last run result, no credentials needed.'
+      },
+      {
+        command: 'globalpayments diagnose <packId>:<caseId> --json',
+        purpose: 'Narrow to one case: its near misses, per-field deltas, and the exact request that satisfies it.'
+      },
+      { command: 'globalpayments cases show <packId>:<caseId> --json', purpose: 'Read the raw matcher and expectation the case enforces.' },
       { command: 'globalpayments run --cert <packId> --timeout 30s --json', purpose: 'Re-evaluate after sending a corrected transaction.' }
+    ]
+  },
+  {
+    id: 'red-to-green',
+    goal: 'Turn a failing required case green.',
+    steps: [
+      { command: 'globalpayments run --cert <packId> --json', purpose: 'Produce a result. Exit 1 means required cases are not passing.' },
+      {
+        command: 'globalpayments diagnose --json',
+        purpose:
+          'Read `data.fixPlan`. Each entry names the field to change, its current value, and its required value. Apply `fixPlan[0]` to the request your own integration sends, then send that transaction — globalpayments never creates one.'
+      },
+      {
+        command: 'globalpayments diagnose <packId>:<caseId> --json',
+        purpose: 'Confirm you read the right constraint before re-sending: `data.cases[0].diagnosis.requiredRequest` is the exact request shape.'
+      },
+      { command: 'globalpayments run --cert <packId> --json', purpose: 'Confirm the case flipped to pass. Repeat until exit 0.' }
     ]
   },
   {

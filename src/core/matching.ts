@@ -23,8 +23,27 @@ function matchesBaseComposite(txn: ObservedTxn, criteria: MatchCriteria): boolea
   );
 }
 
+/**
+ * Read the card brand a transaction carries.
+ *
+ * `ObservedTxn` holds these under `paymentMethod` and mirrors them into top-level
+ * aliases. Both spellings must be honoured through a single accessor: when the matcher
+ * and `diagnosis.ts` read the field differently, the matcher rejects a transaction the
+ * diagnosis scores as satisfied, and the remediation ends up arguing with the verdict.
+ */
+export function observedCardBrand(txn: ObservedTxn): string | undefined {
+  return txn.cardBrand ?? txn.paymentMethod?.cardBrand;
+}
+
+/** Read the card last4 a transaction carries. See {@link observedCardBrand}. */
+export function observedLast4(txn: ObservedTxn): string | undefined {
+  return txn.last4 ?? txn.paymentMethod?.last4;
+}
+
 function matchesOptionalCardFilters(txn: ObservedTxn, criteria: MatchCriteria): boolean {
-  return matchField(txn.cardBrand, criteria.cardBrand) && matchField(txn.last4, criteria.last4);
+  return (
+    matchField(observedCardBrand(txn), criteria.cardBrand) && matchField(observedLast4(txn), criteria.last4)
+  );
 }
 
 function matchesByStrategy(txn: ObservedTxn, criteria: MatchCriteria, strategy: MatchStrategy): boolean {
