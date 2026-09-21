@@ -1,81 +1,80 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
-import { ConfigLoadError, loadObserverConfig } from '../../config/load.js';
+import { runCommand } from '../../contract/emit.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../../contract/errors.js';
+import { loadObserverConfig } from '../../config/load.js';
 import { loadEnvFile } from '../../config/env.js';
-import {
-  AuthFailureError,
-  GpApiAuthProvider,
-  InvalidCredentialsError,
-  MalformedAuthResponseError,
-  NetworkAuthError
-} from '../../gpapi/auth.js';
+import { GpApiAuthProvider, environmentBaseUrl } from '../../gpapi/auth.js';
 
-function formatMetadata(metadata: Record<string, unknown>): string {
-  return JSON.stringify(metadata, null, 2);
+export interface AuthTestData {
+  authenticated: true;
+  environment: string;
+  baseUrl: string;
+  apiVersion: string;
+  token: {
+    type?: string;
+    expiresIn?: number;
+    expiresAt?: string;
+    scope?: string;
+  };
 }
 
 export function registerAuthCommands(program: Command): void {
-  const auth = program.command('auth').description('Authentication related commands');
+  const auth = program.command('auth').description('Authentication commands');
 
   auth
     .command('test')
-    .description('Attempt GP API token retrieval and print safe metadata')
-    .option('--config <path>', 'Config path', '.gpcli/config.yaml')
-    .option('--env-file <path>', 'Env file path', '.env')
-    .action(async (options: { config: string; envFile: string }) => {
-      try {
+    .description('Exchange credentials for a GP API token and report safe token metadata')
+    .option('--config <path>', 'Config file path. Omit to configure entirely from environment variables.')
+    .option('--env-file <path>', 'Env file to load before running', '.env')
+    .option('--json', 'Emit a single JSON envelope on stdout and nothing else')
+    .action(async (options: { config?: string; envFile: string; json?: boolean }) => {
+      await runCommand<AuthTestData>('auth.test', { json: options.json }, async () => {
         loadEnvFile(options.envFile);
         const config = await loadObserverConfig(options.config);
-        const authProvider = new GpApiAuthProvider();
-        const token = await authProvider.getToken({
+
+        if (!config.auth.appId || !config.auth.appKey) {
+          throw new GlobalPaymentsError(
+            ERROR_CODES.E_AUTH_MISSING_CREDENTIALS,
+            'GP API credentials are not configured (auth.appId / auth.appKey are empty).'
+          );
+        }
+
+        const token = await new GpApiAuthProvider().getToken({
           appId: config.auth.appId,
           appKey: config.auth.appKey,
           environment: config.environment,
           apiVersion: config.auth.apiVersion
         });
 
-        console.log(pc.green('auth test successful'));
-        console.log(
-          formatMetadata({
-            tokenReceived: token.accessToken.length > 0,
-            tokenType: token.metadata.tokenType,
-            expiresIn: token.metadata.expiresIn,
-            expiresAt: token.metadata.expiresAt,
-            scope: token.metadata.scope
-          })
-        );
-      } catch (error: unknown) {
-        if (error instanceof InvalidCredentialsError) {
-          console.error(pc.red('auth failed: invalid credentials'));
-          console.error(error.message);
-          process.exitCode = 1;
-          return;
-        }
+        const data: AuthTestData = {
+          authenticated: true,
+          environment: config.environment,
+          baseUrl: environmentBaseUrl(config.environment),
+          apiVersion: config.auth.apiVersion,
+          token: {
+            ...(token.metadata.tokenType !== undefined ? { type: token.metadata.tokenType } : {}),
+            ...(token.metadata.expiresIn !== undefined ? { expiresIn: token.metadata.expiresIn } : {}),
+            ...(token.metadata.expiresAt !== undefined ? { expiresAt: token.metadata.expiresAt } : {}),
+            ...(token.metadata.scope !== undefined ? { scope: token.metadata.scope } : {})
+          }
+        };
 
-        if (error instanceof NetworkAuthError) {
-          console.error(pc.red('auth failed: network error'));
-          console.error(error.message);
-          process.exitCode = 1;
-          return;
-        }
-
-        if (error instanceof MalformedAuthResponseError || error instanceof AuthFailureError) {
-          console.error(pc.red('auth failed'));
-          console.error(error.message);
-          process.exitCode = 1;
-          return;
-        }
-
-        if (error instanceof ConfigLoadError) {
-          console.error(pc.red('auth failed: invalid config'));
-          console.error(error.message);
-          process.exitCode = 1;
-          return;
-        }
-
-        console.error(pc.red('auth failed: unexpected error'));
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
+        return {
+          data,
+          render: (value) => {
+            console.log(pc.green('✓'), 'Authenticated against', pc.cyan(value.baseUrl));
+            console.log(pc.gray(`  environment=${value.environment} apiVersion=${value.apiVersion}`));
+            console.log(
+              pc.gray(
+                `  token type=${value.token.type ?? 'unknown'} expiresIn=${value.token.expiresIn ?? 'unknown'}s`
+              )
+            );
+          },
+          nextActions: [
+            { reason: 'Run the full readiness report.', command: 'globalpayments doctor --json' }
+          ]
+        };
+      });
     });
 }

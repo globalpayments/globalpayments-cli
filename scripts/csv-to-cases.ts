@@ -2,7 +2,7 @@
 /**
  * csv-to-cases.ts
  *
- * Build-time utility for the gp-cli maintenance team.
+ * Build-time utility for the globalpayments-cli maintenance team.
  * Converts a cert-test CSV into YAML case files inside a bundled pack directory.
  *
  * Usage:

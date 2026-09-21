@@ -13,8 +13,37 @@ This tool is an observer-only client that runs outside your integration, validat
 - **Sliding time-window polling** — Configurable overlap, page size, and poll interval; handles partial results gracefully
 - **Multiple evaluation modes** — Latest (single newest match), sequence (ordered matches), and aggregate (match counts)
 - **Graceful failure handling** — Timeout with partial results, ambiguous-match detection, detailed error messages
-- **Persistent result artifacts** — JSON output for CI consumption; timestamped history in `.gpcli/results/`
+- **Persistent result artifacts** — JSON output for CI consumption; timestamped history in `.globalpayments/results/`
 - **CLI + programmatic API** — Use as command-line tool or import as Node.js module
+- **Machine-readable everywhere** — `--json` on every command emits one versioned envelope with stable error codes, remediation, and suggested next commands
+
+## Automation and agents
+
+Every command supports `--json`, and every JSON invocation writes exactly one envelope
+to stdout and nothing else. Failures carry a stable `error.code` plus a `remediation`,
+and exit codes distinguish a certification failure (`1`) from a config (`3`), auth (`4`),
+or network (`5`) problem.
+
+Start here:
+
+```bash
+globalpayments explain --json    # the complete interface contract in one call
+```
+
+See **[AGENTS.md](AGENTS.md)** for the full contract, invariants, and architecture.
+
+### Exit codes
+
+| Code | Name | Meaning |
+|---|---|---|
+| 0 | `OK` | Success |
+| 1 | `CERT_FAILED` | Run completed; required cases not passing (a result, not a tool error) |
+| 2 | `USAGE` | Malformed invocation |
+| 3 | `CONFIG` | Config missing, unparseable, or invalid |
+| 4 | `AUTH` | Credentials missing or rejected |
+| 5 | `NETWORK` | GP API unreachable (retryable) |
+| 6 | `NOT_FOUND` | Unknown pack, case, or result artifact |
+| 7 | `INTERNAL` | Bug in globalpayments |
 
 ## Installation
 
@@ -58,7 +87,7 @@ export GP_API_ACCOUNT_NAME="your-account-name"  # optional; restricts matching t
 export GP_API_ENVIRONMENT="sandbox"              # or: production
 ```
 
-Or generate `.gpcli/config.yaml`:
+Or create `.globalpayments/config.yaml`:
 ```bash
 npx @globalpayments/cli init --with-config
 # Writes .env.example (always) and .gpcli/config.yaml (with --with-config)
@@ -67,42 +96,70 @@ npx @globalpayments/cli init --with-config
 
 ### 2. List available certification cases
 ```bash
-npx @globalpayments/cli cases list --config .gpcli/config.yaml
+npx @globalpayments/cli cases list --config .globalpayments/config.yaml
 # Shows all cases by pack; use --pack <packId> to filter
 ```
 
 ### 3. Run certification observer
 ```bash
 # Watch mode: polls for up to 10 minutes, updates screen in real-time
-npx @globalpayments/cli watch --config .gpcli/config.yaml --timeout 10m
+npx @globalpayments/cli watch --config .globalpayments/config.yaml --timeout 10m
 
 # CI mode: single run, exit non-zero if required cases don't pass
-npx @globalpayments/cli run --config .gpcli/config.yaml --timeout 5m --json
+npx @globalpayments/cli run --config .globalpayments/config.yaml --timeout 5m --json
 ```
 
 ### 4. Review results
 ```bash
-npx @globalpayments/cli report --input .gpcli/results/latest.json
+npx @globalpayments/cli report --input .globalpayments/results/latest.json
 # Pretty-prints pass/fail summary with reasons
 ```
 
 ## CLI Commands
 
+All commands accept `--json`, which emits a single envelope on stdout and suppresses
+all other output.
+
+### `globalpayments explain`
+Describe the entire CLI contract: every command and flag, every exit code, every error
+code with its remediation, environment variables, domain concepts, and canonical
+workflows. Generated from the live command tree, so it cannot drift from the code.
+
+**Options:**
+- `--json` — Emit the machine-readable manifest
+
+---
+
+### `globalpayments packs list` / `globalpayments packs show <packId>`
+Discover the certification suites this build can run, with case counts, inheritance,
+and metadata. `packs show` additionally lists every resolved case address.
+
+**Options:**
+- `--config <path>` — Config file path (optional)
+- `--json` — Machine-readable output
+
+---
+
 ### `globalpayments init`
-Non-interactive scaffolding — writes template files, no prompts. Always writes `.env.example`; add `--with-config` to also write `.gpcli/config.yaml` (the same default path every other command reads from).
+Scaffold a starter `.env.example`, and optionally an annotated `globalpayments.config.yaml`.
+Existing files are never overwritten.
 
 **Options:**
 - `--dir <path>` — Output directory (default: `.`)
-- `--with-config` — Also generate `.gpcli/config.yaml`
+- `--with-config` — Also write `globalpayments.config.yaml`
+- `--json` — Machine-readable output
 
 ---
 
 ### `globalpayments doctor`
-Validate GP API access and resolve active certification packs without polling. Safe to run before watch/run.
+Structured readiness report. Runs independent checks — env file, config, credentials,
+GP API token exchange, available packs — each with its own status and, on failure, a
+stable error code and remediation.
 
 **Output:**
-- Auth status (valid credentials, token expiry, account access)
-- Resolved packs and case count
+- Per-check `status` (`pass` / `fail` / `skip`), `detail`, and `remediation`
+- Resolved environment, base URL, and config source
+- Available bundled certification suites
 - Config redaction summary
 - Suggested next steps
 
@@ -113,7 +170,7 @@ Validate GP API access and resolve active certification packs without polling. S
 ---
 
 ### `globalpayments auth test`
-Quick auth validation: fetch an access token, confirm scope, and verify account access.
+Exchange credentials for a GP API token and report safe token metadata.
 
 **Options:**
 - `--config <path>` — Config file (default: `.gpcli/config.yaml`)
@@ -121,43 +178,47 @@ Quick auth validation: fetch an access token, confirm scope, and verify account 
 
 **Example:**
 ```bash
-globalpayments auth test --config .gpcli/config.yaml
-# Output: ✓ Valid credentials | Token expires: 2024-08-13T12:34:56Z | Scope: transactions:read
+globalpayments auth test --json
 ```
 
 ---
 
 ### `globalpayments cases list`
-List all resolved certification cases grouped by pack.
+List every resolved certification case with its canonical address.
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
+- `--config <path>` — Config file path (optional)
 - `--pack <packId...>` — Activate one or more packs (space-separated)
 - `--profile <name>` — Activate profile-defined packs (from config)
+- `--cert <name>` — Shorthand for a single `--pack`
+- `--required-only` — Restrict output to required cases
+- `--tag <tag...>` — Restrict output to cases carrying all of these tags
+- `--json` — Machine-readable output
 
 **Example:**
 ```bash
-globalpayments cases list --config .gpcli/config.yaml --pack global-core eu-ecommerce
-# Output:
-# Global Core
-#   Version: 1.0.0 | Region: EMEA
-#   sale-approved - Sale approved (REQUIRED)
-#   sale-declined - Sale declined (optional)
-# ...
+globalpayments cases list --cert global-core
+# Global Core (global-core v1.0.0)
+#   1 case(s), 1 required
+#
+#   global-core:basic-sale-approved — Basic sale approved (REQUIRED) [smoke]
 ```
+
+Case addresses are formatted `<packId>:<caseId>` and are identical across
+`cases list`, `cases show`, `run`, `watch`, and `report`.
 
 ---
 
-### `globalpayments cases show <caseId>`
-Display full resolved case definition (matcher rules + expectations).
+### `globalpayments cases show <caseAddress>`
+Display one fully resolved case definition (matcher rules + expectations).
 
 **Options:**
-- `--config <path>` — Config file (default: `.gpcli/config.yaml`)
+- `--config <path>` — Config file path (optional)
+- `--json` — Machine-readable output
 
 **Example:**
 ```bash
-globalpayments cases show global-core:sale-approved --config .gpcli/config.yaml
-# Output: Case details with matcher, expectations, tags, evaluator config
+globalpayments cases show global-core:basic-sale-approved --json
 ```
 
 ---
@@ -173,9 +234,8 @@ Poll for case matches in real-time. Continuously fetches transactions, evaluates
 - `--profile <name>` — Activate profile-defined packs (from config)
 - `--cert <name>` — Activate a bundled certification suite by name (shorthand for `--pack`)
 
-**Exit code:**
-- `0` — Timeout or user interrupt; results persisted
-- `1` — Auth error, config error, or unrecoverable failure
+**Exit codes:** see the [exit-code table](#exit-codes). `0` when all required cases
+pass, `1` when they do not, and a distinct code for config, auth, and network faults.
 
 **Output:**
 ```
@@ -183,7 +243,7 @@ Polling (elapsed: 2m 15s | fetched: 234 txns | window: 15m)
 
 ✓ global-core:sale-approved [PASS]
 ✗ global-core:sale-declined [FAIL] — No matches found
-○ eu-ecommerce:3ds-sale [PEND] — Awaiting match
+○ global-ecommerce:3ds-sale [PEND] — Awaiting match
 
 Recent transactions:
   14:32:01  SALE  CAPTURED  100 USD  Visa ····1234  [00]
@@ -204,16 +264,17 @@ CI-friendly mode: single polling cycle, exit non-zero if any required cases fail
 - `--cert <name>` — Activate a bundled certification suite by name (shorthand for `--pack`)
 - `--json` — Output JSON instead of pretty-printed results
 
-**Exit code:**
-- `0` — All required cases passing
-- `1` — Any required case failing, auth error, or config error
+**Exit codes:** see the [exit-code table](#exit-codes). Notably `1` means the run
+completed and required cases are not passing — distinct from `3` (config), `4` (auth),
+and `5` (network), so a pipeline can tell a genuine certification failure from an
+infrastructure fault.
 
 **Example (GitHub Actions):**
 ```yaml
 - name: Validate certification
   run: |
     npx @globalpayments/cli run \
-      --config .gpcli/config.yaml \
+      --config .globalpayments/config.yaml \
       --timeout 5m \
       --json > results.json
     cat results.json
@@ -222,21 +283,23 @@ CI-friendly mode: single polling cycle, exit non-zero if any required cases fail
 ---
 
 ### `globalpayments report`
-Display a persisted result JSON file in human-readable format.
+Read a persisted result artifact and re-render it without re-running. Emits a warning
+when the artifact's `schemaVersion` does not match the one this build expects.
 
 **Options:**
-- `--input <path>` — Result JSON file (default: `.gpcli/results/latest.json`)
+- `--input <path>` — Result JSON file (default: `.globalpayments/results/latest.json`)
+- `--json` — Machine-readable output
 
 **Example:**
 ```bash
-globalpayments report --input .gpcli/results/2024-08-13T10-32-45Z.json
+globalpayments report --json
 ```
 
 ## Configuration
 
 ### Config File Format
 
-Create `.gpcli/config.yaml`:
+Create `.globalpayments/config.yaml`:
 
 ```yaml
 version: 1
@@ -270,8 +333,7 @@ packs:
 # Packs to load on startup
 activePacks:
   - global-core
-  - eu-ecommerce
-  - us-retail
+  - global-ecommerce
 ```
 
 ### Environment Variables
@@ -284,7 +346,7 @@ activePacks:
 | `GP_API_ENVIRONMENT` | GP environment | no (default: `sandbox`) | `sandbox` or `production` |
 | `GP_API_VERSION` | GP API version | no (default: `2021-03-22`) | `2021-03-22` |
 
-All commands load `.env` automatically (override with `--env-file <path>`). Variables are read directly when no `--config` file is used, or substituted into a config file's `${VAR}` placeholders otherwise.
+All variables are read by `globalpayments init`, `globalpayments doctor`, and all polling commands.
 
 ## How Polling Works
 
@@ -293,7 +355,7 @@ Each polling cycle:
 1. **Fetch transactions** — Query GP API for recent transactions in a sliding time window
 2. **Evaluate all cases** — For each active case, find matching transactions
 3. **Apply latest-match-wins** — Re-evaluate each case using only the newest match in the window
-4. **Persist results** — Write `.gpcli/results/latest.json` and timestamped history
+4. **Persist results** — Write `.globalpayments/results/latest.json` and timestamped history
 5. **Wait/repeat** — Sleep for `polling.intervalMs`, then repeat (or exit if timeout)
 
 **Time window logic:**
@@ -387,8 +449,8 @@ expect:
 
 After each polling cycle, results are written to:
 
-- **Latest:** `.gpcli/results/latest.json`
-- **History:** `.gpcli/results/history/<timestamp>.json`
+- **Latest:** `.globalpayments/results/latest.json`
+- **History:** `.globalpayments/results/history/<timestamp>.json`
 
 ### Result JSON Schema
 
@@ -419,7 +481,7 @@ After each polling cycle, results are written to:
       }
     },
     {
-      "namespacedId": "eu-ecommerce:3ds-sale",
+      "namespacedId": "global-ecommerce:3ds-sale",
       "status": "pend",
       "required": false,
       "reason": "No matches found",
@@ -462,15 +524,15 @@ jobs:
           GP_API_APP_KEY: ${{ secrets.GP_APP_KEY }}
           GP_API_ENVIRONMENT: sandbox
         run: |
-          npx @globalpayments/cli init --with-config
-          npx @globalpayments/cli run --config .gpcli/config.yaml --timeout 5m --json
+          npx @globalpayments/cli init --config .globalpayments/config.yaml
+          npx @globalpayments/cli run --config .globalpayments/config.yaml --timeout 5m --json
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: certification-results
-          path: .gpcli/results/
+          path: .globalpayments/results/
 ```
 
 ## Authentication & Security
@@ -496,7 +558,7 @@ jobs:
 - **Solution:**
   1. Verify credentials in GP Developer Portal
   2. Confirm the account has API access enabled
-  3. Try `globalpayments auth test --config .gpcli/config.yaml` to debug
+  3. Try `globalpayments auth test --config .globalpayments/config.yaml` to debug
 
 ### **Error: `No transactions found`**
 - **Cause:** Poll window is too small, or your integration hasn't submitted transactions yet
@@ -517,12 +579,12 @@ jobs:
 - **Solution:**
   1. Increase `--timeout` (e.g., `--timeout 15m`)
   2. Check transaction submission in your integration (may be too slow)
-  3. Review `.gpcli/results/latest.json` to see which cases are pending
+  3. Review `.globalpayments/results/latest.json` to see which cases are pending
 
 ### **Port or file permission errors**
-- **Cause:** `.gpcli/` directory lacks write permissions, or another process is using the port
+- **Cause:** `.globalpayments/` directory lacks write permissions, or another process is using the port
 - **Solution:**
-  1. Ensure `.gpcli/` exists and is writable: `mkdir -p .gpcli && chmod 755 .gpcli`
+  1. Ensure `.globalpayments/` exists and is writable: `mkdir -p .globalpayments && chmod 755 .globalpayments`
   2. Check for running globalpayments processes: `ps aux | grep globalpayments`
 
 ### **Matcher rules not matching transactions**
@@ -535,7 +597,7 @@ jobs:
 
 ## Programmatic API
 
-Import and use gp-cli as a Node.js module:
+Import and use globalpayments-cli as a Node.js module:
 
 ```typescript
 import { buildCli } from '@globalpayments/cli';
@@ -545,7 +607,7 @@ import { HttpGpApiClient } from '@globalpayments/cli/gpapi/client';
 import { GpApiAuthProvider } from '@globalpayments/cli/gpapi/auth';
 
 async function runCertification() {
-  const config = await loadObserverConfig('.gpcli/config.yaml');
+  const config = await loadObserverConfig('.globalpayments/config.yaml');
   const authProvider = new GpApiAuthProvider();
   const apiClient = new HttpGpApiClient(authProvider);
   const engine = new CertificationEngine(config, apiClient);
@@ -561,35 +623,45 @@ See `src/` for full type definitions.
 
 ## Testing
 
-Run the test suite:
-
 ```bash
-npm test              # Single run
-npm run test:watch   # Watch mode
+npm run verify        # typecheck + tests + build + build-level smoke
+npm test              # Unit suite, single run
+npm run test:watch    # Watch mode
+npm run smoke         # Contract checks against dist/bin.js (requires a build)
 ```
 
+`npm run verify` is the command to run before calling a change done. The unit suite
+runs in-source and therefore cannot observe faults that exist only in the bundled
+artifact — path anchoring, packaging, stdout purity, and the CLI's exit codes.
+`scripts/smoke.mjs` invokes the built binary the way a real caller would, with
+credentials blanked so it never touches the network.
+
 Coverage includes:
+- The output contract: envelope invariants, exit-code taxonomy, error-code stability
+- Case addressing (`<packId>:<caseId>`) and pack inheritance resolution
 - Config loading and schema validation
 - Auth provider and GP API client
 - Matcher logic and case evaluation
 - Polling state machine and window management
 - Result persistence and redaction
 - Diagnostics and error messages
-- CLI smoke tests
 
 ## Development
 
 ```bash
 npm install
-npm run lint          # Type check
-npm run build         # Compile to dist/
-npm run dev           # Run from source (tsx)
-npm test              # Tests
+npm run typecheck     # tsc --noEmit, strict
+npm run build         # Compile to dist/ and copy src/packs -> dist/packs
+npm run dev -- <args> # Run from source (tsx)
+npm run verify        # Everything
 
 # Try the CLI locally
-node dist/bin.js --help
-node dist/bin.js doctor --config examples/gpcli.config.yaml
+node dist/bin.js explain --json
+node dist/bin.js packs list
+node dist/bin.js doctor
 ```
+
+See [AGENTS.md](AGENTS.md) for the machine contract and the internal architecture.
 
 ## Contributing
 
@@ -598,7 +670,7 @@ Contributions are welcome. Please:
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
-4. Run `npm run lint` and `npm test` before submitting PR
+4. Run `npm run verify` before submitting a PR
 5. Follow existing code style (TypeScript strict mode, no `any`)
 
 ## Resources

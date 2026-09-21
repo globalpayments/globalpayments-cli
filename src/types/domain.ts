@@ -86,6 +86,7 @@ export interface CaseEvaluatorConfig {
 export interface CertificationCase {
   id: string;
   name: string;
+  scenario?: string;
   required: boolean;
   tags?: string[];
   mode?: CaseMode;
@@ -205,16 +206,35 @@ export interface CaseEvaluationResult {
   evidence?: Evidence;
 }
 
+export interface RunResultSummary {
+  pass: number;
+  fail: number;
+  pending: number;
+  total: number;
+}
+
+export interface RunResultRequired {
+  total: number;
+  passing: number;
+  failing: number;
+}
+
+/**
+ * The persisted, machine-readable outcome of a certification run.
+ *
+ * `verdict` is the single field a caller should branch on: it already encodes the
+ * required-case rule, so consumers never reimplement it. `schemaVersion` is checked
+ * by `globalpayments report` before the artifact is trusted.
+ */
 export interface RunResult {
+  schemaVersion: number;
   timestamp: string;
   profile?: string;
+  environment: Environment;
   activePacks: string[];
-  summary: {
-    pass: number;
-    fail: number;
-    pending: number;
-    total: number;
-  };
+  verdict: 'passed' | 'failed';
+  summary: RunResultSummary;
+  required: RunResultRequired;
   cases: CaseEvaluationResult[];
   redactedConfig: Record<string, unknown>;
 }

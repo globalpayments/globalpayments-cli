@@ -6,7 +6,7 @@ import { ZodError } from 'zod';
 import { observerConfigSchema, packSchema, caseSchema } from './schema.js';
 import type { CertificationCase, CertificationPack, ObserverConfig, ResolvedObserverConfig } from '../types/domain.js';
 
-export const DEFAULT_CONFIG_PATH = '.gpcli/config.yaml';
+export const DEFAULT_CONFIG_PATH = '.globalpayments/config.yaml';
 
 export type ConfigLoadErrorCode = 'read-failed' | 'yaml-parse' | 'schema-invalid';
 

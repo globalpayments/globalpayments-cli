@@ -1,74 +1,99 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { readFile } from 'node:fs/promises';
+import { runCommand } from '../contract/emit.js';
+import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
+import { RESULT_SCHEMA_VERSION } from '../contract/version.js';
 import type { RunResult } from '../types/domain.js';
 
-function renderTerminalReport(result: RunResult): void {
-  console.log(pc.bold('Global Payments Certification Report'));
-  console.log();
+const DEFAULT_RESULT_PATH = '.globalpayments/results/latest.json';
 
-  console.log('Timestamp:', pc.cyan(result.timestamp));
-  if (result.profile) {
-    console.log('Profile:', pc.cyan(result.profile));
-  }
-  console.log('Packs:', pc.cyan(result.activePacks.join(', ')));
-  console.log();
+export interface ReportData extends RunResult {
+  sourcePath: string;
+}
 
-  console.log(pc.bold('Summary:'));
-  console.log(`  ${pc.green(`${result.summary.pass} pass`)}, ${pc.red(`${result.summary.fail} fail`)}, ${pc.gray(`${result.summary.pending} pending`)}, ${pc.bold(result.summary.total.toString())} total`);
+function renderReport(data: ReportData): void {
+  console.log(pc.bold('Global Payments certification report'));
   console.log();
+  console.log('  Source:      ', pc.cyan(data.sourcePath));
+  console.log('  Timestamp:   ', pc.cyan(data.timestamp));
+  console.log('  Environment: ', pc.blue(data.environment));
+  console.log('  Packs:       ', pc.cyan(data.activePacks.join(', ')));
+  console.log(
+    '  Verdict:     ',
+    data.verdict === 'passed' ? pc.green('PASSED') : pc.red('FAILED'),
+    pc.gray(`(${data.required.passing}/${data.required.total} required passing)`)
+  );
+  console.log(
+    '  Cases:       ',
+    `${pc.green(`${data.summary.pass} pass`)}, ${pc.red(`${data.summary.fail} fail`)}, ${pc.gray(`${data.summary.pending} pending`)} of ${data.summary.total}`
+  );
 
-  // Group by pack
-  const byPack = new Map<string, typeof result.cases>();
-  for (const caze of result.cases) {
-    if (!byPack.has(caze.packId)) {
-      byPack.set(caze.packId, []);
-    }
-    byPack.get(caze.packId)!.push(caze);
+  const byPack = new Map<string, ReportData['cases']>();
+  for (const caze of data.cases) {
+    const bucket = byPack.get(caze.packId) ?? [];
+    bucket.push(caze);
+    byPack.set(caze.packId, bucket);
   }
 
   for (const [packId, cases] of byPack) {
-    const passCount = cases.filter((c) => c.status === 'pass').length;
-    const failCount = cases.filter((c) => c.status === 'fail').length;
-    const pendCount = cases.filter((c) => c.status === 'pending').length;
-
-    console.log(pc.blue(`\n${packId}:`));
-    console.log(`  ${pc.green(`${passCount} pass`)}, ${pc.red(`${failCount} fail`)}, ${pc.gray(`${pendCount} pending`)}`);
-
+    console.log();
+    console.log(pc.blue(`${packId}:`));
     for (const caze of cases) {
       const icon = caze.status === 'pass' ? pc.green('✓') : caze.status === 'fail' ? pc.red('✗') : pc.gray('○');
-      const status = caze.status === 'pass' ? pc.green('PASS') : caze.status === 'fail' ? pc.red('FAIL') : pc.gray('PENDING');
-      console.log(`    ${icon} ${caze.namespacedCaseId} [${status}] - ${caze.reason}`);
-
+      console.log(`  ${icon} ${pc.cyan(caze.namespacedCaseId)} — ${caze.reason}`);
       if (caze.latestMatch) {
-        console.log(`       Matched: ${caze.latestMatch.reference || caze.latestMatch.id}`);
+        console.log(pc.gray(`      matched ${caze.latestMatch.reference ?? caze.latestMatch.id}`));
       }
     }
   }
-
   console.log();
 }
 
 export function registerReportCommand(program: Command): void {
   program
     .command('report')
-    .description('Read persisted result artifacts and print a summary')
-    .option('--input <path>', 'Path to result JSON', '.gpcli/results/latest.json')
-    .option('--format <type>', 'Output format (terminal|json)', 'terminal')
-    .action(async (options: { input: string; format: string }) => {
-      try {
-        const content = await readFile(options.input, 'utf8');
-        const result: RunResult = JSON.parse(content);
-
-        if (options.format === 'json') {
-          console.log(JSON.stringify(result, null, 2));
-        } else {
-          renderTerminalReport(result);
+    .description('Read a persisted run result and re-render it without re-running')
+    .option('--input <path>', 'Path to a saved result artifact', DEFAULT_RESULT_PATH)
+    .option('--json', 'Emit a single JSON envelope on stdout and nothing else')
+    .action(async (options: { input: string; json?: boolean }) => {
+      await runCommand<ReportData>('report', { json: options.json }, async () => {
+        let raw: string;
+        try {
+          raw = await readFile(options.input, 'utf8');
+        } catch (error) {
+          throw new GlobalPaymentsError(ERROR_CODES.E_RESULT_NOT_FOUND, `No result artifact at ${options.input}.`, {
+            details: { path: options.input },
+            cause: error
+          });
         }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error(pc.red('report failed:'), msg);
-        process.exitCode = 1;
-      }
+
+        let parsed: RunResult;
+        try {
+          parsed = JSON.parse(raw) as RunResult;
+        } catch (error) {
+          throw new GlobalPaymentsError(ERROR_CODES.E_INTERNAL, `Result artifact at ${options.input} is not valid JSON.`, {
+            remediation: 'Delete the corrupt artifact and produce a new one with `globalpayments run`.',
+            details: { path: options.input },
+            cause: error
+          });
+        }
+
+        const warnings =
+          parsed.schemaVersion === RESULT_SCHEMA_VERSION
+            ? []
+            : [
+                {
+                  code: 'W_RESULT_SCHEMA_MISMATCH',
+                  message: `Artifact schemaVersion ${parsed.schemaVersion ?? 'missing'} does not match the expected ${RESULT_SCHEMA_VERSION}. Fields may be absent. Regenerate with \`globalpayments run\`.`
+                }
+              ];
+
+        return {
+          data: { ...parsed, sourcePath: options.input } satisfies ReportData,
+          warnings,
+          render: renderReport
+        };
+      });
     });
 }

@@ -16,7 +16,7 @@ Be respectful, inclusive, and professional. Harassment, discrimination, and host
 ### Local Setup
 ```bash
 git clone https://github.com/globalpayments/globalpayments-cli.git
-cd gp-cli
+cd globalpayments-cli
 npm install
 npm run build
 npm test
@@ -65,7 +65,7 @@ test/                          # Test suite
 ├── *.test.ts                 # Unit tests (16 test files, 113 tests)
 
 examples/                      # Sample config and packs
-├── gpcli.config.yaml
+├── globalpayments.config.yaml
 ```
 
 ## How to Contribute
@@ -149,8 +149,8 @@ Fixes #123"
 
 ### Running Locally
 ```bash
-npm run dev -- doctor --config examples/gpcli.config.yaml
-npm run dev -- watch --config examples/gpcli.config.yaml --timeout 2m
+npm run dev -- doctor --config examples/globalpayments.config.yaml
+npm run dev -- watch --config examples/globalpayments.config.yaml --timeout 2m
 ```
 
 ### Type Checking
@@ -160,6 +160,7 @@ npm run lint  # tsc --noEmit
 
 ### Testing
 ```bash
+npm run verify        # typecheck + tests + build + build-level smoke (run this before every PR)
 npm test              # Run all tests once
 npm run test:watch   # Watch mode (re-run on changes)
 ```

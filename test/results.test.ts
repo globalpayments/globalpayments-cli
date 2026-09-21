@@ -7,11 +7,15 @@ import type { RunResult } from '../src/types/domain.js';
 
 describe('results', () => {
   it('persists latest and timestamped history artifacts', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'gpcli-results-'));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-results-'));
     const result: RunResult = {
+      schemaVersion: 1,
       timestamp: '2026-06-18T12-00-00.000Z',
+      environment: 'sandbox',
       activePacks: ['global-core'],
+      verdict: 'passed',
       summary: { pass: 1, fail: 0, pending: 0, total: 1 },
+      required: { total: 1, passing: 1, failing: 0 },
       cases: [
         {
           namespacedCaseId: 'global-core:sale-approved',

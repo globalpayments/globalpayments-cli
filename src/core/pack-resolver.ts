@@ -1,5 +1,6 @@
 import { loadObserverConfig } from '../config/load.js';
 import { loadPackGraph } from './pack-loader.js';
+import { localCaseId } from './ids.js';
 import type { CertificationCase, CertificationPack, ObserverConfig } from '../types/domain.js';
 
 /**
@@ -63,98 +64,47 @@ function mergePackTags(pack: CertificationPack, parents: CertificationPack[]): s
 }
 
 /**
- * Add pack namespace prefix to case IDs for uniqueness across multiple packs.
- * Transforms case.id from "case-id" to "pack-id:case-id".
- */
-function namespaceCases(packId: string, cases: CertificationCase[]): CertificationCase[] {
-  return cases.map((c) => {
-    // Extract raw case ID in case it's already namespaced (shouldn't happen in normal flow)
-    const rawId = c.id.includes(':') ? (c.id.split(':')[1] ?? c.id) : c.id;
-    return {
-      ...c,
-      id: `${packId}:${rawId}`
-    };
-  });
-}
-
-/**
- * Resolve a pack's full inheritance chain and produce final executable pack.
- * - Merges all inherited cases (child overrides parent)
- * - Merges metadata and tags (child over parent)
- * - Namespaces case IDs to prevent conflicts across packs
+ * Resolve a pack's full inheritance chain into a final, executable pack.
  *
- * Note: This function works with the raw (unnamespaced) pack graph from loadPackGraph.
- * It builds the case inheritance chain and only namespaces at the end.
+ * - Merges inherited cases, child overriding parent by local case id
+ * - Merges metadata and tags, child over parent
+ *
+ * Case ids are left in their local form (`basic-sale-approved`). The globally unique
+ * address (`global-core:basic-sale-approved`) is derived on demand via
+ * {@link caseAddress}; see `src/core/ids.ts` for why the two are kept distinct.
  */
 export function resolveInheritedPack(packId: string, graph: Map<string, CertificationPack>): CertificationPack {
-  const current = graph.get(packId);
-  if (!current) {
-    throw new Error(`Pack not found: ${packId}`);
-  }
-
-  // Recursively build the parent packs, but keep their case IDs unnamespaced internally
-  const resolvedParents = (current.extends ?? []).map((parentId) => {
-    // Get parent from graph and extract raw cases
-    const parentPack = graph.get(parentId);
-    if (!parentPack) {
-      throw new Error(`Parent pack not found: ${parentId}`);
-    }
-    const resolved = resolveInheritedPackInternal(parentId, graph);
-    return resolved;
-  });
-
-  // Build case map: parent cases → child overrides
-  // Match by raw case ID (without pack namespace)
-  const inheritedCases = resolvedParents
-    .flatMap((parentPack) => parentPack.cases)
-    .reduce<Map<string, CertificationCase>>((acc, caze) => {
-      // Extract raw case ID
-      const rawId = caze.id.includes(':') ? (caze.id.split(':')[1] ?? caze.id) : caze.id;
-      acc.set(rawId, caze);
-      return acc;
-    }, new Map());
-
-  // Child cases override parent cases by raw id
-  for (const caze of current.cases) {
-    inheritedCases.set(caze.id, caze);
-  }
-
-  return {
-    ...current,
-    metadata: mergePackMetadata(current, resolvedParents),
-    tags: mergePackTags(current, resolvedParents),
-    cases: namespaceCases(current.id, Array.from(inheritedCases.values()))
-  };
+  return resolveInheritedPackWithSeen(packId, graph, new Set());
 }
 
-/**
- * Internal helper for recursive pack resolution that keeps cases unnamespaced
- * until the final top-level pack is resolved.
- */
-function resolveInheritedPackInternal(
+function resolveInheritedPackWithSeen(
   packId: string,
-  graph: Map<string, CertificationPack>
+  graph: Map<string, CertificationPack>,
+  seen: Set<string>
 ): CertificationPack {
   const current = graph.get(packId);
   if (!current) {
     throw new Error(`Pack not found: ${packId}`);
   }
 
-  const resolvedParents = (current.extends ?? []).map((parentId) => {
-    return resolveInheritedPackInternal(parentId, graph);
-  });
+  if (seen.has(packId)) {
+    throw new Error(`Circular pack inheritance detected at "${packId}": ${[...seen, packId].join(' -> ')}`);
+  }
+  const nextSeen = new Set(seen).add(packId);
 
-  // Build case map: parent cases → child overrides
-  const inheritedCases = resolvedParents
-    .flatMap((parentPack) => parentPack.cases)
-    .reduce<Map<string, CertificationCase>>((acc, caze) => {
-      acc.set(caze.id, caze);
-      return acc;
-    }, new Map());
+  const resolvedParents = (current.extends ?? []).map((parentId) =>
+    resolveInheritedPackWithSeen(parentId, graph, nextSeen)
+  );
 
-  // Child cases override parent cases by id
+  // Parent cases first, then child cases override them by local id.
+  const inheritedCases = new Map<string, CertificationCase>();
+  for (const parent of resolvedParents) {
+    for (const caze of parent.cases) {
+      inheritedCases.set(localCaseId(caze.id), caze);
+    }
+  }
   for (const caze of current.cases) {
-    inheritedCases.set(caze.id, caze);
+    inheritedCases.set(localCaseId(caze.id), caze);
   }
 
   return {

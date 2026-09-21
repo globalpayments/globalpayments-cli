@@ -1,4 +1,4 @@
-import type { CertificationCase, MatchCriteria, MatchResult, MatchStrategy, ObservedTxn } from './types.js';
+import type { MatchCriteria, MatchResult, MatchStrategy, MatchableCase, ObservedTxn } from './types.js';
 
 function matchField(value: string | number | undefined, expected: string | number | undefined): boolean {
   return expected === undefined || value === expected;
@@ -64,7 +64,7 @@ export function detectAmbiguousMatches<T extends ObservedTxn>(candidates: T[]): 
   return parseTime(latest.timeCreated) === parseTime(secondLatest.timeCreated);
 }
 
-export function matchCaseToTransactions<TTxn extends ObservedTxn, TCase extends CertificationCase>(
+export function matchCaseToTransactions<TTxn extends ObservedTxn, TCase extends MatchableCase>(
   transactions: TTxn[],
   caze: TCase
 ): MatchResult & { candidates: TTxn[]; latest?: TTxn } {
@@ -106,7 +106,7 @@ export function matchesCriteria(txn: ObservedTxn, criteria: MatchCriteria): bool
   return matchesByStrategy(txn, criteria, 'composite');
 }
 
-export function findMatches<TTxn extends ObservedTxn, TCase extends CertificationCase>(transactions: TTxn[], caze: TCase): TTxn[] {
+export function findMatches<TTxn extends ObservedTxn, TCase extends MatchableCase>(transactions: TTxn[], caze: TCase): TTxn[] {
   return matchCaseToTransactions(transactions, caze).candidates;
 }
 

@@ -11,6 +11,7 @@ import type { GpApiClient } from '../gpapi/client.js';
 import { matchCaseToTransactions } from './matching.js';
 import { evaluateCase } from './evaluator.js';
 import { calculatePollingWindow } from './polling.js';
+import { caseAddress } from './ids.js';
 
 /**
  * Represents the runtime state of a single case during polling.
@@ -99,7 +100,7 @@ export class CertificationEngine extends EventEmitter {
     // Flatten and index all cases from all packs
     for (const pack of packs) {
       for (const caze of pack.cases) {
-        const namespacedId = `${pack.id}:${caze.id}`;
+        const namespacedId = caseAddress(pack.id, caze.id);
         this.allCases.push({ pack, case: caze });
         this.state.cases.set(namespacedId, {
           caseId: caze.id,
@@ -165,7 +166,7 @@ export class CertificationEngine extends EventEmitter {
     // Evaluate all cases
     const stateTransitions: StateTransition[] = [];
     for (const { pack, case: caze } of this.allCases) {
-      const namespacedId = `${pack.id}:${caze.id}`;
+      const namespacedId = caseAddress(pack.id, caze.id);
       const previousRunState = this.state.cases.get(namespacedId)!;
       const previousStatus = previousRunState.status;
 
@@ -241,7 +242,7 @@ export class CertificationEngine extends EventEmitter {
   allRequiredCasesPassing(): boolean {
     for (const { pack, case: caze } of this.allCases) {
       if (caze.required) {
-        const namespacedId = `${pack.id}:${caze.id}`;
+        const namespacedId = caseAddress(pack.id, caze.id);
         const runState = this.state.cases.get(namespacedId);
         if (!runState || runState.status !== 'pass') {
           return false;
@@ -257,7 +258,7 @@ export class CertificationEngine extends EventEmitter {
   allRequiredCasesEvaluated(): boolean {
     for (const { pack, case: caze } of this.allCases) {
       if (caze.required) {
-        const namespacedId = `${pack.id}:${caze.id}`;
+        const namespacedId = caseAddress(pack.id, caze.id);
         const runState = this.state.cases.get(namespacedId);
         if (!runState || !runState.evaluatedAt) {
           return false;
@@ -309,7 +310,7 @@ export class CertificationEngine extends EventEmitter {
       }
 
       // Wait for next poll
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      await sleep(pollInterval, options.signal);
     }
 
     return this.getCaseStates();
@@ -330,4 +331,24 @@ export class CertificationEngine extends EventEmitter {
 
     return this.getCaseStates();
   }
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+
+    function onAbort(): void {
+      clearTimeout(timeout);
+      resolve();
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }

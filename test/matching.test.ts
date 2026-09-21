@@ -6,9 +6,9 @@ import {
   matchCaseToTransactions,
   matchesCriteria
 } from '../src/core/matching.js';
-import type { CertificationCase, ObservedTxn } from '../src/core/types.js';
+import type { MatchableCase, ObservedTxn } from '../src/core/types.js';
 
-const caseTemplate: CertificationCase = {
+const caseTemplate: MatchableCase = {
   id: 'sale-approved',
   matcher: {
     type: 'SALE',
@@ -46,7 +46,7 @@ describe('matching', () => {
   });
 
   it('prefers exact reference matching when configured', () => {
-    const caze: CertificationCase = {
+    const caze: MatchableCase = {
       ...caseTemplate,
       matcher: { reference: 'abc-123', amount: 100 }
     };
@@ -61,7 +61,7 @@ describe('matching', () => {
   });
 
   it('supports reference prefix matching when configured', () => {
-    const caze: CertificationCase = {
+    const caze: MatchableCase = {
       ...caseTemplate,
       matcher: { referencePrefix: 'cert-sale-' }
     };
@@ -76,7 +76,7 @@ describe('matching', () => {
   });
 
   it('supports composite matching with optional card filters', () => {
-    const caze: CertificationCase = {
+    const caze: MatchableCase = {
       ...caseTemplate,
       matcher: {
         type: 'SALE',

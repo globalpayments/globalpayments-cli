@@ -3,25 +3,29 @@ import pc from 'picocolors';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { runCommand } from '../contract/emit.js';
 import { listBuiltinPackIds } from '../core/builtin-packs.js';
 import { DEFAULT_CONFIG_PATH } from '../config/load.js';
 
-const STARTER_ENV = `# Global Payments API Credentials
-# Set these in your environment or in a .env file loaded by your shell.
+const STARTER_ENV = `# Global Payments API credentials.
+# globalpayments reads these from the environment; a .env file is loaded automatically.
 GP_API_APP_ID=your_app_id_here
 GP_API_APP_KEY=your_app_key_here
 
-# Optional: override target environment (default: sandbox)
-# GP_API_ENVIRONMENT=sandbox
+# Optional: target environment (default: sandbox)
+# GP_ENVIRONMENT=sandbox
 
-# Optional: restrict matching to a specific account
-# GP_API_ACCOUNT_NAME=your_account_name
+# Optional: restrict matching to a single GP account
+# GP_ACCOUNT_NAME=your_account_name
+
+# Optional: pin the GP API version (default: 2021-03-22)
+# GP_API_VERSION=2021-03-22
 `;
 
-const STARTER_CONFIG = `# gp-cli configuration (optional)
-# Most settings have sensible defaults. Only override what you need.
-# Credentials are read from environment variables by default — you do not
-# need this file unless you want to customize polling, output, or add local packs.
+const STARTER_CONFIG = `# globalpayments configuration — entirely optional.
+# Credentials come from the environment, so this file is only needed to customise
+# polling, output, or to register your own certification packs.
+# Run \`globalpayments explain --json\` for the full contract.
 
 version: 1
 environment: sandbox   # or: production
@@ -31,72 +35,85 @@ auth:
   appId: \${GP_API_APP_ID}
   appKey: \${GP_API_APP_KEY}
 
-# Uncomment to restrict matching to a specific GP account:
+# Restrict matching to one GP account:
 # account:
 #   accountName: \${GP_API_ACCOUNT_NAME}
 
-# Uncomment to tune polling behaviour:
+# Tune the polling window. Transactions older than the window are invisible.
 # polling:
 #   intervalMs: 3000
 #   lookbackMinutes: 10
+#   overlapSeconds: 30
 
-# Uncomment to add local packs (in addition to bundled ones):
+# Register local packs, searched after the bundled ones:
 # packs:
 #   directory: ./packs
+
+# Name reusable pack sets, then select with --profile:
+# profiles:
+#   smoke:
+#     packs: [global-core]
 `;
+
+export interface InitFileResult {
+  path: string;
+  created: boolean;
+  reason: string;
+}
+
+export interface InitData {
+  directory: string;
+  files: InitFileResult[];
+  packsAvailable: string[];
+}
+
+async function writeIfAbsent(filePath: string, contents: string): Promise<InitFileResult> {
+  if (existsSync(filePath)) {
+    return { path: filePath, created: false, reason: 'Already exists; left untouched.' };
+  }
+  await writeFile(filePath, contents, 'utf8');
+  return { path: filePath, created: true, reason: 'Created.' };
+}
 
 export function registerInitCommand(program: Command): void {
   program
     .command('init')
-    .description('Generate a minimal .env.example (and optional config) for gp-cli')
-    .option('--dir <path>', 'Output directory', '.')
-    .option('--with-config', 'Also generate an annotated config.yaml override file')
-    .action(async (options: { dir: string; withConfig?: boolean }) => {
-      try {
-        const outputDir = options.dir;
-        await mkdir(outputDir, { recursive: true });
+    .description('Scaffold a starter .env.example and, optionally, an annotated config file')
+    .option('--dir <path>', 'Directory to write into', '.')
+    .option('--with-config', 'Also write an annotated globalpayments.config.yaml')
+    .option('--json', 'Emit a single JSON envelope on stdout and nothing else')
+    .action(async (options: { dir: string; withConfig?: boolean; json?: boolean }) => {
+      await runCommand<InitData>('init', { json: options.json }, async () => {
+        await mkdir(options.dir, { recursive: true });
 
-        // Always write .env.example
-        const envPath = path.join(outputDir, '.env.example');
-        if (!existsSync(envPath)) {
-          await writeFile(envPath, STARTER_ENV, 'utf8');
-          console.log(pc.green('✓'), 'Created:', pc.cyan(envPath));
-        } else {
-          console.log(pc.gray('–'), 'Already exists (skipped):', pc.cyan(envPath));
-        }
+        const files: InitFileResult[] = [await writeIfAbsent(path.join(options.dir, '.env.example'), STARTER_ENV)];
 
-        // Optionally write config.yaml, at the same default path every other command reads from
         if (options.withConfig) {
-          const configPath = path.join(outputDir, DEFAULT_CONFIG_PATH);
-          if (!existsSync(configPath)) {
-            await mkdir(path.dirname(configPath), { recursive: true });
-            await writeFile(configPath, STARTER_CONFIG, 'utf8');
-            console.log(pc.green('✓'), 'Created:', pc.cyan(configPath));
-          } else {
-            console.log(pc.gray('–'), 'Already exists (skipped):', pc.cyan(configPath));
-          }
+          files.push(await writeIfAbsent(path.join(options.dir, 'globalpayments.config.yaml'), STARTER_CONFIG));
         }
 
-        // Show available cert suites
-        const builtinPacks = await listBuiltinPackIds();
+        const packsAvailable = await listBuiltinPackIds();
 
-        console.log();
-        console.log(pc.cyan('Next steps:'));
-        console.log(`1. Copy ${pc.cyan('.env.example')} to ${pc.cyan('.env')} and fill in your GP API credentials`);
-        console.log(`2. Run ${pc.yellow('globalpayments doctor')} to verify your setup`);
-        if (builtinPacks.length > 0) {
-          console.log(`3. Run a cert suite:  ${pc.yellow(`globalpayments run --cert ${builtinPacks[0]}`)}`);
-          console.log();
-          console.log(pc.cyan('Available bundled cert suites:'));
-          for (const id of builtinPacks) {
-            console.log(`  ${pc.yellow(id)}`);
-          }
-        }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error(pc.red('init failed:'), msg);
-        process.exitCode = 1;
-      }
+        return {
+          data: { directory: options.dir, files, packsAvailable } satisfies InitData,
+          render: (data) => {
+            for (const file of data.files) {
+              const icon = file.created ? pc.green('✓') : pc.gray('–');
+              console.log(`${icon} ${pc.cyan(file.path)} ${pc.gray(file.reason)}`);
+            }
+          },
+          nextActions: [
+            {
+              reason: 'Copy the example to .env and fill in your GP API credentials.',
+              command: `cp ${path.join(options.dir, '.env.example')} ${path.join(options.dir, '.env')}`
+            },
+            { reason: 'Confirm credentials and connectivity.', command: 'globalpayments doctor --json' },
+            {
+              reason: 'Evaluate a bundled certification suite.',
+              command: `globalpayments run --cert ${packsAvailable[0] ?? '<packId>'} --json`
+            }
+          ]
+        };
+      });
     });
 }
-

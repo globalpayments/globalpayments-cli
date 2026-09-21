@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { buildCli } from '../src/index.js';
 
 describe('cli smoke', () => {
-  it('renders help with required command surface', () => {
+  it('exposes the full command surface in help', () => {
     const help = buildCli().helpInformation();
 
-    expect(help).toContain('Global Payments certification observer CLI');
-    expect(help).toContain('init');
-    expect(help).toContain('doctor');
-    expect(help).toContain('auth');
-    expect(help).toContain('watch');
-    expect(help).toContain('run');
-    expect(help).toContain('report');
-    expect(help).toContain('cases');
+    for (const command of ['explain', 'init', 'doctor', 'auth', 'packs', 'cases', 'run', 'watch', 'report']) {
+      expect(help).toContain(command);
+    }
+  });
+
+  it('describes itself as an observer so callers do not expect it to create transactions', () => {
+    expect(buildCli().description()).toMatch(/observer-only/i);
   });
 });

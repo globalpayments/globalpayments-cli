@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { RunResult } from '../types/domain.js';
 
-export async function persistRunResult(result: RunResult, rootDir = '.gpcli/results'): Promise<{ latestPath: string; historyPath: string }> {
+export async function persistRunResult(result: RunResult, rootDir = '.globalpayments/results'): Promise<{ latestPath: string; historyPath: string }> {
   const historyDir = path.join(rootDir, 'history');
   await mkdir(historyDir, { recursive: true });
 
