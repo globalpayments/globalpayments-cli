@@ -1,0 +1,26 @@
+id: ach-sale
+name: "ACH: bank account (eCheck) sale (amount 7002)"
+scenario: "POST /transactions with payment_method.bank_transfer, type SALE, amount 7002, currency USD."
+required: true
+observability: polling
+tags:
+  - ach
+  - echeck
+  - bank-transfer
+mode: latest
+# ACH settles asynchronously, so PENDING is an acceptable outcome.
+matcher:
+  type: SALE
+  channel: CNP
+  currency: USD
+  amount: 7002
+expect:
+  latest:
+    statusIn:
+      - PENDING
+      - CAPTURED
+      - FUNDED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

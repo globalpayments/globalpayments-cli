@@ -1,0 +1,20 @@
+id: merchant-documents
+name: "Upload merchant documentation — POST /merchants/{id}/documents"
+scenario: "Call POST /merchants/{id}/documents."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: DOCUMENT_UPLOAD
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

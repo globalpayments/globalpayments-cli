@@ -1,0 +1,24 @@
+id: monthly-fees
+name: "List monthly fee reports — GET /settlement/reports/monthly-fees"
+scenario: "Call GET /settlement/reports/monthly-fees."
+required: false
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-inferred
+mode: latest
+# Action type taken from a GP sandbox log entry for a rejected call (HTTP 403, permission
+# not enabled), so it is still unconfirmed. GP logged the call as MONTHLY_FEES_LIST on the
+# REPORTS resource. Run `npm run verify:actions` with an app that has the monthly-fee
+# permission to confirm it.
+matcher:
+  type: MONTHLY_FEES_LIST
+  resource: REPORTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

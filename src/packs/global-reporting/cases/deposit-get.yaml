@@ -1,0 +1,21 @@
+id: deposit-get
+name: "Get a deposit — GET /settlement/deposits/{id}"
+scenario: "Call GET /settlement/deposits/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: DEPOSIT_SINGLE
+  resource: DEPOSITS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

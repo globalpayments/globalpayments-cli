@@ -1,0 +1,20 @@
+id: order-create
+name: "Create an order — POST /merchants/{id}/orders"
+scenario: "Call POST /merchants/{id}/orders."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: CREATE_ORDER
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

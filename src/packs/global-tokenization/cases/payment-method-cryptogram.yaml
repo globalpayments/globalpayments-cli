@@ -1,0 +1,21 @@
+id: payment-method-cryptogram
+name: "Generate a network-token cryptogram — POST /payment-methods/{id}/cryptogram or POST /payment-methods/cryptogram"
+scenario: "Call POST /payment-methods/{id}/cryptogram or POST /payment-methods/cryptogram."
+required: false
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+# Both cryptogram endpoints log the same action type; one case covers either. Network tokens must be enabled; optional.
+matcher:
+  type: CRYPTOGRAM_CREATE
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

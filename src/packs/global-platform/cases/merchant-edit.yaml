@@ -1,0 +1,21 @@
+id: merchant-edit
+name: "Edit a merchant — PATCH /merchants/{id}"
+scenario: "Call PATCH /merchants/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: MERCHANT_EDIT
+  resource: MERCHANTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

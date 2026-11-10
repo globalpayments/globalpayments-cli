@@ -1,0 +1,23 @@
+id: cp-preauth-capture
+name: "CP Capture: capture a card-present pre-authorization (amount 4002)"
+scenario: "POST /transactions/{id}/capture on the PREAUTHORIZED transaction from cp-preauth."
+required: true
+observability: polling
+tags:
+  - cp
+  - capture
+  - delayed-capture
+mode: latest
+# Covers POST /transactions/{id}/capture for the CP channel.
+matcher:
+  type: SALE
+  channel: CP
+  amount: 4002
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

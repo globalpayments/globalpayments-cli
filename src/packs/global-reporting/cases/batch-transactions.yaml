@@ -1,0 +1,21 @@
+id: batch-transactions
+name: "List transactions within a batch — GET /batches/{id}/transactions"
+scenario: "Call GET /batches/{id}/transactions."
+required: false
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: BATCH_LIST
+  resource: BATCHES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

@@ -1,0 +1,23 @@
+id: sale-gbp
+name: "Multi-currency: GBP sale (amount 8001)"
+scenario: "POST /transactions type SALE, currency GBP, amount 8001."
+required: false
+observability: polling
+tags:
+  - multicurrency
+  - gbp
+mode: latest
+# Optional: only applies if the merchant account is enabled for GBP.
+matcher:
+  type: SALE
+  channel: CNP
+  currency: GBP
+  amount: 8001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

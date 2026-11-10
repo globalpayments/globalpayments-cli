@@ -1,0 +1,21 @@
+id: transaction-summary-report
+name: "Transaction summary report — GET /reports"
+scenario: "Call GET /reports."
+required: false
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+# Requires the reports permission on the app; optional.
+matcher:
+  type: REPORT_LIST
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

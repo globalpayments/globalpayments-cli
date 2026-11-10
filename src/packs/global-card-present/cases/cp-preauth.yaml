@@ -1,0 +1,25 @@
+id: cp-preauth
+name: "CP Pre-Authorize: capture_mode LATER (amount 4002)"
+scenario: "POST /transactions with channel CP, type SALE, capture_mode LATER, amount 4002."
+required: true
+observability: polling
+tags:
+  - cp
+  - authorize
+  - delayed-capture
+mode: latest
+# Pair with cp-preauth-capture. CAPTURED is accepted so this case stays green
+# after the capture: only the latest status of a transaction is observable.
+matcher:
+  type: SALE
+  channel: CP
+  amount: 4002
+expect:
+  latest:
+    statusIn:
+      - PREAUTHORIZED
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

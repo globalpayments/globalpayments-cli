@@ -1,0 +1,21 @@
+id: batch-get
+name: "Get a batch — GET /batches/{id}"
+scenario: "Call GET /batches/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: BATCH_SINGLE
+  resource: BATCHES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

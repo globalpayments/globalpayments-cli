@@ -6,9 +6,16 @@ import { formatDuration } from '../util/index.js';
 export interface RunObservationLike {
   pollCycles: number;
   transactionsObserved: number;
+  /** Records read from `GET /actions`; absent in results saved before the actions feed existed. */
+  actionsObserved?: number;
   timedOut: boolean;
   elapsedMs: number;
   observationFailed?: boolean;
+}
+
+/** Records read from either feed; zero means the window held nothing for any case to judge. */
+function recordsObserved(observation: RunObservationLike): number {
+  return observation.transactionsObserved + (observation.actionsObserved ?? 0);
 }
 
 export interface RunViewModel extends RunResult {
@@ -62,7 +69,7 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
     });
   }
 
-  if (view.observation.transactionsObserved === 0) {
+  if (recordsObserved(view.observation) === 0) {
     actions.push({
       reason:
         'No transactions were observed in the polling window. globalpayments only observes; send the transactions this suite expects, then rerun.',
@@ -118,7 +125,8 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
       `${pc.gray(`${view.summary.pending} pending`)} of ${view.summary.total}`
   );
   log(
-    `  Observed:    ${view.observation.transactionsObserved} transaction(s) over ` +
+    `  Observed:    ${view.observation.transactionsObserved} transaction(s)` +
+      `${view.observation.actionsObserved ? `, ${view.observation.actionsObserved} action(s)` : ''} over ` +
       `${view.observation.pollCycles} cycle(s) in ${formatDuration(view.observation.elapsedMs)}`
   );
 
@@ -150,7 +158,7 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
         pc.yellow('globalpayments doctor') +
         pc.gray(' to isolate config, credentials, or connectivity.')
     );
-  } else if (view.observation.transactionsObserved === 0) {
+  } else if (recordsObserved(view.observation) === 0) {
     log();
     log(pc.yellow('No transactions were observed. globalpayments observes only; it never creates transactions.'));
   }

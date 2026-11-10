@@ -62,6 +62,7 @@ export function registerWatchCommand(program: Command): void {
           : undefined;
 
         let transactionsObserved = 0;
+        let actionsObserved = 0;
         let pollCycles = 0;
         let timedOut = false;
         const startedAt = Date.now();
@@ -70,6 +71,7 @@ export function registerWatchCommand(program: Command): void {
         session.engine.on('cycleComplete', (event) => {
           pollCycles += 1;
           transactionsObserved += event.transactionsFetched;
+          actionsObserved += event.actionsFetched;
 
           if (!live) {
             return;
@@ -80,6 +82,7 @@ export function registerWatchCommand(program: Command): void {
             controller.update({
               cycleNumber: event.cycleNumber,
               transactionsFetched: event.transactionsFetched,
+              actionsFetched: event.actionsFetched,
               cases,
               recentTransactions: event.recentTransactions
             });
@@ -90,6 +93,7 @@ export function registerWatchCommand(program: Command): void {
             renderClassicWatchFrame({
               cycleNumber: event.cycleNumber,
               transactionsFetched: event.transactionsFetched,
+              actionsFetched: event.actionsFetched,
               cases,
               recentTransactions: event.recentTransactions,
               caseDefinitions: session.caseIndex
@@ -121,6 +125,7 @@ export function registerWatchCommand(program: Command): void {
           observation: {
             pollCycles,
             transactionsObserved,
+            actionsObserved,
             timedOut,
             elapsedMs: Date.now() - startedAt,
             observationFailed: observation.failed

@@ -1,0 +1,16 @@
+id: global-auth-lifecycle
+name: Global Payments Authorization Lifecycle — Test Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+  channel: CNP
+tags:
+  - global
+  - ecomm
+  - cnp
+  - gp-api
+  - lifecycle
+cases:
+  directory: cases

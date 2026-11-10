@@ -1,0 +1,21 @@
+id: payer-get
+name: "Get a payer — GET /payers/{id}"
+scenario: "Call GET /payers/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: PAYER_SINGLE
+  resource: PAYERS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

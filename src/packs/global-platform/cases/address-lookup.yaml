@@ -1,0 +1,20 @@
+id: address-lookup
+name: "Address lookup — GET /addresses"
+scenario: "Call GET /addresses."
+required: false
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: ADDRESS_LIST
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

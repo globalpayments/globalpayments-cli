@@ -35,7 +35,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke": "node scripts/smoke.mjs",
-    "verify": "npm run typecheck && npm test && npm run build && npm run smoke"
+    "verify": "npm run typecheck && npm test && npm run build && npm run smoke",
+    "verify:actions": "node scripts/verify-action-types.mjs"
   },
   "engines": {
     "node": ">=20"

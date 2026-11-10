@@ -1,0 +1,21 @@
+id: link-list
+name: "List payment links — GET /links"
+scenario: "Call GET /links."
+required: true
+source: actions
+observability: polling
+tags:
+  - links
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: LINK_LIST
+  resource: LINKS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

@@ -29,6 +29,8 @@ export interface ObservedTxn {
   responseCode?: string;
   responseMessage?: string;
   paymentMethod?: ObservedTxnPaymentMethod;
+  /** GP resource the record belongs to (e.g. `PAYERS`). Populated for `/actions` records only. */
+  resource?: string;
   raw?: unknown;
 
   // Backward-compatible aliases for matcher/evaluator code that still reads top-level values.
@@ -49,7 +51,19 @@ export interface MatchCriteria {
   accountName?: string;
   cardBrand?: string;
   last4?: string;
+  resource?: string;
 }
+
+/**
+ * Which GP API feed a case is judged against.
+ *
+ * - `transactions` — `GET /transactions`. `type` is SALE/REFUND, `status` is the
+ *   transaction status.
+ * - `actions` — `GET /actions`, the audit log of every API request. `type` is the
+ *   action type (e.g. `PAYER_CREATE`), `status` is the resource status, and
+ *   `responseCode` is the HTTP status of the request (e.g. `"200"`).
+ */
+export type CaseSource = 'transactions' | 'actions';
 
 export interface CaseLatestExpectation {
   statusIn?: string[];
@@ -93,6 +107,8 @@ export interface CertificationCase {
   formQuestion?: number;
   /** How this case is observed: polling = automated via /transactions, manual = requires human verification, partial = polling captures pass/fail but not all signal. */
   observability?: 'polling' | 'manual' | 'partial';
+  /** Feed this case is judged against. Defaults to `transactions`. */
+  source?: CaseSource;
   matcher: MatchCriteria;
   expect: CaseExpect;
   evaluator?: CaseEvaluatorConfig;

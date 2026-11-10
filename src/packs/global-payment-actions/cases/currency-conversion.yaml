@@ -1,0 +1,22 @@
+id: currency-conversion
+name: "Convert an amount (DCC rate lookup) — POST /currency-conversions"
+scenario: "Call POST /currency-conversions."
+required: false
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+# DCC must be enabled on the account; optional.
+matcher:
+  type: RATE_LOOKUP
+  resource: CURRENCY_CONVERSIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

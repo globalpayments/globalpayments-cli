@@ -1,0 +1,24 @@
+id: dcc-sale
+name: "DCC: sale after a currency-conversion rate lookup (amount 8003)"
+scenario: "POST /currency-conversions for amount 8003, then POST /transactions referencing the returned currency_conversion id."
+required: false
+observability: partial
+tags:
+  - dcc
+  - currency-conversion
+mode: latest
+# OBSERVABILITY: partial
+# The sale is observable; the POST /currency-conversions rate lookup and whether
+# the payer accepted DCC are not visible in /transactions. Confirm manually.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 8003
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

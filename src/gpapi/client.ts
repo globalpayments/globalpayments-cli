@@ -5,10 +5,18 @@ import {
   type RetryPolicy,
   type TransactionsApiDeps
 } from './transactions.js';
-import { fetchActionsPage, type ActionsApiDeps, type ActionsQuery, type ActionRecord } from './actions.js';
+import {
+  fetchActionsPage,
+  fetchRecentActionsPaginated,
+  type ActionsApiDeps,
+  type ActionsQuery,
+  type ActionRecord
+} from './actions.js';
 
 export interface GpApiClient {
   fetchRecentTransactions(window: PollWindow): Promise<TransactionRecord[]>;
+  /** Every API request logged in the window, projected onto the observed-record shape. */
+  fetchRecentActions(window: PollWindow): Promise<TransactionRecord[]>;
   fetchActions(query: ActionsQuery): Promise<ActionRecord[]>;
 }
 
@@ -53,16 +61,30 @@ export class HttpGpApiClient implements GpApiClient {
     );
   }
 
+  async fetchRecentActions(window: PollWindow): Promise<TransactionRecord[]> {
+    // Deliberately not scoped to `accountName`: that names the transaction-processing
+    // account, but payers, tokens, disputes, and settlement actions are logged under
+    // their own accounts (e.g. `tokenization`) and would all be filtered out.
+    return fetchRecentActionsPaginated(this.actionsDeps(), {
+      fromTimeCreated: window.fromTimeCreated,
+      toTimeCreated: window.toTimeCreated,
+      pageSize: Math.max(window.pageSize, 100),
+      observerAppId: this.deps.authInput.appId
+    }, { maxPages: this.deps.maxPagesPerPoll });
+  }
+
   async fetchActions(query: ActionsQuery): Promise<ActionRecord[]> {
-    const transportDeps: ActionsApiDeps = {
+    return fetchActionsPage(this.actionsDeps(), query);
+  }
+
+  private actionsDeps(): ActionsApiDeps {
+    return {
       authProvider: this.deps.authProvider,
       authInput: this.deps.authInput,
       baseUrl: environmentBaseUrl(this.deps.authInput.environment),
       apiVersion: this.deps.authInput.apiVersion,
       fetchImpl: this.deps.fetchImpl
     };
-
-    return fetchActionsPage(transportDeps, query);
   }
 }
 
@@ -70,6 +92,10 @@ export class StubGpApiClient implements GpApiClient {
   constructor(private readonly _deps: GpApiClientDeps) {}
 
   async fetchRecentTransactions(_window: PollWindow): Promise<TransactionRecord[]> {
+    return [];
+  }
+
+  async fetchRecentActions(_window: PollWindow): Promise<TransactionRecord[]> {
     return [];
   }
 

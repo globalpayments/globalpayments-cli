@@ -10,6 +10,7 @@ const PANE_GAP = 3;
 export interface WatchFrameInput {
   cycleNumber?: number;
   transactionsFetched?: number;
+  actionsFetched?: number;
   cases: CaseRunState[];
   recentTransactions?: TransactionRecord[];
   caseDefinitions: Map<string, CertificationCase>;
@@ -168,12 +169,18 @@ function clipLines(lines: string[], maxLines: number, offset = 0): string[] {
   return lines.slice(offset, offset + maxLines);
 }
 
+/** "N transaction(s) fetched", with the `/actions` count added when that feed was read. */
+function fetchedSummary(input: WatchFrameInput): string {
+  const actions = input.actionsFetched ? `, ${input.actionsFetched} action(s)` : '';
+  return `${input.transactionsFetched ?? 0} transaction(s)${actions} fetched`;
+}
+
 function renderListPane(input: WatchFrameInput, width: number, height?: number): string[] {
   const selectedIndex = input.selectedIndex ?? 0;
   const lines: string[] = [];
   lines.push(pc.bold('Expected tests'));
   if (input.cycleNumber !== undefined && input.transactionsFetched !== undefined) {
-    lines.push(pc.gray(`Cycle ${input.cycleNumber} · ${input.transactionsFetched} transaction(s) fetched`));
+    lines.push(pc.gray(`Cycle ${input.cycleNumber} · ${fetchedSummary(input)}`));
   }
   lines.push(pc.gray('─'.repeat(Math.max(0, width))));
   for (const [index, state] of input.cases.entries()) {
@@ -213,9 +220,9 @@ function renderDetailPane(input: WatchFrameInput, width: number, height?: number
 export function renderClassicWatchFrame(input: WatchFrameInput): string {
   const lines: string[] = [];
   if (input.cycleNumber !== undefined && input.transactionsFetched !== undefined) {
-    lines.push(`${pc.gray(`[Cycle ${input.cycleNumber}]`)} ${input.transactionsFetched} transaction(s) fetched`);
-    if (input.transactionsFetched === 0) {
-      lines.push(pc.yellow('  No transactions found in this polling window.'));
+    lines.push(`${pc.gray(`[Cycle ${input.cycleNumber}]`)} ${fetchedSummary(input)}`);
+    if (input.transactionsFetched === 0 && !input.actionsFetched) {
+      lines.push(pc.yellow('  No transactions or actions found in this polling window.'));
     }
     lines.push('');
   }

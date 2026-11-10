@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import type {
   CaseDiagnosis,
   CaseEvaluationResult,
+  CaseSource,
   CertificationCase,
   CertificationPack,
   EvaluatorModule,
@@ -14,6 +15,19 @@ import { evaluateCase } from './evaluator.js';
 import { diagnoseCase } from './diagnosis.js';
 import { calculatePollingWindow } from './polling.js';
 import { caseAddress } from './ids.js';
+
+const SOURCES: readonly CaseSource[] = ['transactions', 'actions'];
+
+/** The feed a case is judged against. */
+export function caseSource(caze: Pick<CertificationCase, 'source'>): CaseSource {
+  return caze.source ?? 'transactions';
+}
+
+interface ObservedFeed {
+  records: TransactionRecord[];
+  failed: boolean;
+  needed: boolean;
+}
 
 /**
  * Represents the runtime state of a single case during polling.
@@ -68,6 +82,8 @@ export interface EngineRunOptions {
 export interface EnginePollResult {
   cycleNumber: number;
   transactionsFetched: number;
+  /** Records read from `/actions` this cycle; 0 when no active case uses that feed. */
+  actionsFetched: number;
   casesEvaluated: number;
   stateTransitions: StateTransition[];
   cases: CaseRunState[];
@@ -96,6 +112,7 @@ export class CertificationEngine extends EventEmitter {
   private state: EngineState;
   private cycleNumber = 0;
   private allCases: Array<{ pack: CertificationPack; case: CertificationCase }> = [];
+  private neededSources = new Set<CaseSource>();
 
   constructor(
     private config: ObserverConfig,
@@ -115,6 +132,7 @@ export class CertificationEngine extends EventEmitter {
       for (const caze of pack.cases) {
         const namespacedId = caseAddress(pack.id, caze.id);
         this.allCases.push({ pack, case: caze });
+        this.neededSources.add(caseSource(caze));
         this.state.cases.set(namespacedId, {
           caseId: caze.id,
           packId: pack.id,
@@ -160,25 +178,42 @@ export class CertificationEngine extends EventEmitter {
       now
     );
 
-    // Fetch transactions from GP API
-    let transactions: TransactionRecord[] = [];
-    let pollFailed = false;
-    try {
-      transactions = await this.client.fetchRecentTransactions(window);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      pollFailed = true;
-      // Deliberately NOT the reserved 'error' event: Node throws when an 'error' event
-      // has no listener, which would abort the run over a condition we recover from
-      // here. The cycle continues; the diagnosis reports OBSERVATION_FAILED.
-      this.emit('pollError', {
-        type: 'polling_error',
-        message: `Failed to fetch transactions: ${msg}`,
-        error
-      });
-      // Continue with empty transaction list; this cycle will mark all cases as pending.
-      // `pollFailed` keeps the diagnosis from reporting that as "nothing was sent".
+    // Fetch only the feeds the active cases need.
+    const feeds: Record<CaseSource, ObservedFeed> = {
+      transactions: { records: [], failed: false, needed: this.neededSources.has('transactions') },
+      actions: { records: [], failed: false, needed: this.neededSources.has('actions') }
+    };
+
+    for (const source of SOURCES) {
+      const feed = feeds[source];
+      if (!feed.needed) continue;
+      try {
+        feed.records =
+          source === 'transactions'
+            ? await this.client.fetchRecentTransactions(window)
+            : await this.client.fetchRecentActions(window);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        feed.failed = true;
+        // Deliberately NOT the reserved 'error' event: Node throws when an 'error' event
+        // has no listener, which would abort the run over a condition we recover from
+        // here. The cycle continues; the diagnosis reports OBSERVATION_FAILED.
+        this.emit('pollError', {
+          type: 'polling_error',
+          source,
+          message: `Failed to fetch ${source}: ${msg}`,
+          error
+        });
+        // Continue with an empty list; `failed` keeps the diagnosis from reporting
+        // that as "nothing was sent".
+      }
     }
+
+    const transactions = feeds.transactions.records;
+    // The window counts as unread only when every feed this run depends on failed.
+    const pollFailed =
+      SOURCES.some((source) => feeds[source].needed) &&
+      SOURCES.every((source) => !feeds[source].needed || feeds[source].failed);
 
     this.state.lastPolledAt = now;
 
@@ -188,9 +223,10 @@ export class CertificationEngine extends EventEmitter {
       const namespacedId = caseAddress(pack.id, caze.id);
       const previousRunState = this.state.cases.get(namespacedId)!;
       const previousStatus = previousRunState.status;
+      const feed = feeds[caseSource(caze)];
 
-      // Match transactions to this case
-      const matchResult = matchCaseToTransactions(transactions, caze);
+      // Match observed records from this case's feed
+      const matchResult = matchCaseToTransactions(feed.records, caze);
       const matches = matchResult.candidates;
 
       // Get evaluator for this case and pack
@@ -213,12 +249,12 @@ export class CertificationEngine extends EventEmitter {
       const diagnosis = diagnoseCase({
         caze,
         status: evaluationResult.status,
-        observedTransactions: transactions,
+        observedTransactions: feed.records,
         matches,
         ...(evaluationResult.latestMatch ? { latestMatch: evaluationResult.latestMatch } : {}),
         ambiguous: matchResult.ambiguous,
         lookbackMinutes: this.config.polling.lookbackMinutes,
-        pollFailed
+        pollFailed: feed.failed
       });
 
       const newRunState: CaseRunState = {
@@ -257,6 +293,7 @@ export class CertificationEngine extends EventEmitter {
     const result: EnginePollResult = {
       cycleNumber: this.cycleNumber,
       transactionsFetched: transactions.length,
+      actionsFetched: feeds.actions.records.length,
       casesEvaluated: this.allCases.length,
       stateTransitions,
       cases: this.getCaseStates(),

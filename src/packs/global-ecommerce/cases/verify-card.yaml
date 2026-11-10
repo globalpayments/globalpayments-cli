@@ -1,0 +1,25 @@
+id: verify-card
+name: "Verify: confirm a card is available for payment — POST /verifications"
+scenario: "Call POST /verifications with a card payment method."
+required: false
+source: actions
+observability: polling
+tags:
+  - verify
+  - pre-sale
+  - action-type-confirmed
+mode: latest
+# Brand-independent check that POST /verifications was called, from the GP API action
+# log. The per-brand verify-* cases judge the outcome through /transactions, which lists
+# verifications as type VERIFICATION with status VERIFIED and the card brand.
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: VERIFY
+  resource: VERIFICATIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

@@ -1,0 +1,23 @@
+id: cp-reversal
+name: "CP Reversal: void a card-present sale (amount 4005)"
+scenario: "POST /transactions/{id}/reversal on a CP sale of amount 4005 before it settles."
+required: true
+observability: polling
+tags:
+  - cp
+  - reversal
+  - post-sale
+mode: latest
+# Covers POST /transactions/{id}/reversal for the CP channel.
+matcher:
+  type: SALE
+  channel: CP
+  amount: 4005
+expect:
+  latest:
+    statusIn:
+      - REVERSED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

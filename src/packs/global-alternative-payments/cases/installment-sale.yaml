@@ -1,0 +1,23 @@
+id: installment-sale
+name: "Installments: sale paid in installments (amount 7006)"
+scenario: "POST /installments to confirm available plans, then POST /transactions with the chosen installment plan, amount 7006."
+required: false
+observability: partial
+tags:
+  - installments
+mode: latest
+# OBSERVABILITY: partial
+# The sale is observable; the POST /installments plan lookup is not visible in
+# /transactions. Installments are region-specific — keep this case optional.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 7006
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

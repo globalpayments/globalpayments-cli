@@ -1,0 +1,20 @@
+id: order-get
+name: "Get an order — GET /merchants/{id}/orders/{ORD_id}"
+scenario: "Call GET /merchants/{id}/orders/{ORD_id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: ORDER_SINGLE
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

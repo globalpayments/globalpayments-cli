@@ -1,0 +1,15 @@
+id: global-3ds
+name: Global Payments 3D Secure Authentications — API Request Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+tags:
+  - global
+  - gp-api
+  - actions
+  - 3ds
+  - sca
+cases:
+  directory: cases

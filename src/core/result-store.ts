@@ -7,7 +7,8 @@ export async function persistRunResult(result: RunResult, rootDir = '.globalpaym
   await mkdir(historyDir, { recursive: true });
 
   const latestPath = path.join(rootDir, 'latest.json');
-  const historyPath = path.join(historyDir, `${result.timestamp}.json`);
+  // ISO timestamps contain ':', which Windows forbids in file names.
+  const historyPath = path.join(historyDir, `${result.timestamp.replace(/:/g, '-')}.json`);
 
   const content = JSON.stringify(result, null, 2);
   await writeFile(latestPath, content, 'utf8');

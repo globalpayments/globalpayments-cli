@@ -78,7 +78,8 @@ export const caseMatcherSchema = z.object({
   amount: z.number().optional(),
   accountName: z.string().optional(),
   cardBrand: z.string().optional(),
-  last4: z.string().optional()
+  last4: z.string().optional(),
+  resource: z.string().optional()
 });
 
 export const caseSchema = z.object({
@@ -90,6 +91,7 @@ export const caseSchema = z.object({
   mode: z.enum(['latest', 'sequence', 'aggregate']).optional(),
   formQuestion: z.number().int().positive().optional(),
   observability: z.enum(['polling', 'manual', 'partial']).optional(),
+  source: z.enum(['transactions', 'actions']).optional(),
   matcher: caseMatcherSchema,
   expect: z.object({
     latest: z.object({

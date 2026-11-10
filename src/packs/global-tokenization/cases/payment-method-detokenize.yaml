@@ -1,0 +1,22 @@
+id: payment-method-detokenize
+name: "Detokenize a payment method — POST /payment-methods/{id}/detokenize"
+scenario: "Call POST /payment-methods/{id}/detokenize."
+required: false
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+# Detokenization requires PCI scope; optional.
+matcher:
+  type: PAYMENT_METHOD_DETOKENIZE
+  resource: PAYMENT_METHODS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

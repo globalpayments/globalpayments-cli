@@ -1,0 +1,21 @@
+id: confirmation
+name: "Confirm an APM transaction — POST /transactions/{id}/confirmation"
+scenario: "Call POST /transactions/{id}/confirmation."
+required: true
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: CONFIRM
+  resource: TRANSACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

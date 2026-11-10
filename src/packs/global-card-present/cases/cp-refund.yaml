@@ -1,0 +1,23 @@
+id: cp-refund
+name: "CP Refund: refund a card-present sale (amount 4004)"
+scenario: "POST /transactions/{id}/refund on a captured CP sale of amount 4004."
+required: true
+observability: polling
+tags:
+  - cp
+  - refund
+  - post-sale
+mode: latest
+# Covers POST /transactions/{id}/refund for the CP channel.
+matcher:
+  type: REFUND
+  channel: CP
+  amount: 4004
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

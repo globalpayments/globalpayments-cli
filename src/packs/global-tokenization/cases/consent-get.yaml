@@ -1,0 +1,20 @@
+id: consent-get
+name: "Get a consent — GET /consents/{id}"
+scenario: "Call GET /consents/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: CONSENT_SINGLE
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

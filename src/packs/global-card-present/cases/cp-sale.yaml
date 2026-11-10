@@ -1,0 +1,22 @@
+id: cp-sale
+name: "CP Sale: auto-captured card-present sale (amount 4001)"
+scenario: "POST /transactions with channel CP, type SALE, capture_mode AUTO, amount 4001."
+required: true
+observability: polling
+tags:
+  - cp
+  - sale
+mode: latest
+# Baseline card-present authorization with automatic capture.
+matcher:
+  type: SALE
+  channel: CP
+  amount: 4001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

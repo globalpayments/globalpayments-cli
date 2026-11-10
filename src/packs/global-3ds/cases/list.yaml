@@ -1,0 +1,21 @@
+id: list
+name: "List authentications — GET /authentications"
+scenario: "Call GET /authentications."
+required: false
+source: actions
+observability: polling
+tags:
+  - 3ds
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: AUTHENTICATIONS_LIST
+  resource: AUTHENTICATIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

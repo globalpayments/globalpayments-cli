@@ -1,0 +1,20 @@
+id: funds-move
+name: "Credit or debit a funds-management account — POST /merchants/{id}/settlement/funds"
+scenario: "Call POST /merchants/{id}/settlement/funds."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: MERCHANT_FUNDING
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

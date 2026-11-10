@@ -1,0 +1,21 @@
+id: action-get
+name: "Get a single action — GET /actions/{id}"
+scenario: "Call GET /actions/{id}."
+required: false
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: ACTION_SINGLE
+  resource: ACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

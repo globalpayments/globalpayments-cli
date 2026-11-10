@@ -1,0 +1,21 @@
+id: account-get
+name: "Get an account — GET /accounts/{id}"
+scenario: "Call GET /accounts/{id}."
+required: false
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: ACCOUNT_SINGLE
+  resource: ACCOUNTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

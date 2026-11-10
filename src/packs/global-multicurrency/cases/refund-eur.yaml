@@ -1,0 +1,24 @@
+id: refund-eur
+name: "Multi-currency: EUR refund (amount 8002)"
+scenario: "POST /transactions/{id}/refund on an EUR sale of amount 8002."
+required: true
+observability: polling
+tags:
+  - multicurrency
+  - eur
+  - refund
+mode: latest
+# Refunds must be issued in the currency of the original sale.
+matcher:
+  type: REFUND
+  channel: CNP
+  currency: EUR
+  amount: 8002
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

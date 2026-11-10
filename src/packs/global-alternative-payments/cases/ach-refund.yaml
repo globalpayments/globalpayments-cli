@@ -1,0 +1,26 @@
+id: ach-refund
+name: "ACH: refund a bank account sale (amount 7003)"
+scenario: "POST /transactions/{id}/refund on an ACH sale of amount 7003."
+required: false
+observability: polling
+tags:
+  - ach
+  - echeck
+  - refund
+mode: latest
+# ACH settles asynchronously, so PENDING is an acceptable outcome.
+matcher:
+  type: REFUND
+  channel: CNP
+  currency: USD
+  amount: 7003
+expect:
+  latest:
+    statusIn:
+      - PENDING
+      - CAPTURED
+      - FUNDED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

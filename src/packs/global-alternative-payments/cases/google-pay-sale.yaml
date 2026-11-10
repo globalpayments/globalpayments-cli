@@ -1,0 +1,22 @@
+id: google-pay-sale
+name: "Digital wallet: Google Pay sale (amount 7004)"
+scenario: "POST /transactions with payment_method.digital_wallet provider PAY_BY_GOOGLE, amount 7004."
+required: false
+observability: polling
+tags:
+  - digital-wallet
+  - google-pay
+mode: latest
+# The list endpoint does not expose the wallet provider; amount 7004 identifies it.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 7004
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

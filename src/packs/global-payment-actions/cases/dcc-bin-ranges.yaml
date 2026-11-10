@@ -1,0 +1,22 @@
+id: dcc-bin-ranges
+name: "Download DCC BIN ranges — GET /currency-conversions/dcc-bin-ranges"
+scenario: "Call GET /currency-conversions/dcc-bin-ranges with account_name."
+required: false
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+# DCC must be enabled on the account; optional.
+matcher:
+  type: DCC_BIN_RANGE_LIST
+  resource: CURRENCY_CONVERSIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

@@ -140,6 +140,7 @@ export function buildMatcherChecks(caze: CertificationCase): MatcherCheck[] {
     equalsCheck('currency', m.currency, (t) => t.currency),
     equalsCheck('channel', m.channel, (t) => t.channel),
     equalsCheck('accountName', m.accountName, (t) => t.accountName),
+    equalsCheck('resource', m.resource, (t) => t.resource),
     equalsCheck('cardBrand', m.cardBrand, observedCardBrand),
     equalsCheck('last4', m.last4, observedLast4),
     equalsCheck('reference', m.reference, (t) => t.reference, false),
@@ -423,6 +424,7 @@ export function buildRequiredRequest(caze: CertificationCase): RequiredRequest {
   if (m.amount !== undefined) send.amount = m.amount;
   if (m.currency !== undefined) send.currency = m.currency;
   if (m.accountName !== undefined) send.accountName = m.accountName;
+  if (m.resource !== undefined) send.resource = m.resource;
   if (m.cardBrand !== undefined) send.cardBrand = m.cardBrand;
   if (m.last4 !== undefined) send.last4 = m.last4;
   if (m.reference !== undefined) send.reference = m.reference;
@@ -442,8 +444,17 @@ export function buildRequiredRequest(caze: CertificationCase): RequiredRequest {
   if (m.reference !== undefined) {
     notes.push(`Set the request reference to exactly "${m.reference}" so the match is unambiguous.`);
   }
+  if (caze.source === 'actions') {
+    notes.push(
+      'This case is observed through GET /actions, the GP API request log. `type` is the action type and `status` is the resource status; make the API request this case describes and it will appear there.'
+    );
+  }
   if (caze.observability === 'manual') {
-    notes.push('This case is marked observability: manual — the /transactions feed cannot confirm it on its own.');
+    notes.push(
+      caze.source === 'actions'
+        ? 'This case is marked observability: manual — the /actions feed cannot confirm it on its own.'
+        : 'This case is marked observability: manual — the /transactions feed cannot confirm it on its own.'
+    );
   }
   if (caze.scenario) {
     notes.push(caze.scenario);

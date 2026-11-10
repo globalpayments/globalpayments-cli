@@ -1,0 +1,23 @@
+id: settlement-transactions
+name: "List settled transactions — GET /settlement/transactions"
+scenario: "Call GET /settlement/transactions."
+required: false
+source: actions
+observability: partial
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+# GET /transactions logs the same action type. GP logs this request with the same action type as another endpoint, so this case cannot tell them apart.
+# TRANSACTION_LIST from the observing app is filtered out, so use separate app credentials for the integration and for globalpayments.
+matcher:
+  type: TRANSACTION_LIST
+  resource: TRANSACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

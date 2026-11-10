@@ -1,0 +1,21 @@
+id: merchant-list
+name: "List merchants in a partner program — GET /merchants"
+scenario: "Call GET /merchants."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: MERCHANT_LIST
+  resource: MERCHANTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

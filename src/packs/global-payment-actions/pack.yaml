@@ -1,0 +1,14 @@
+id: global-payment-actions
+name: Global Payments Transaction Actions — API Request Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+tags:
+  - global
+  - gp-api
+  - actions
+  - transactions
+cases:
+  directory: cases

@@ -1,0 +1,21 @@
+id: document
+name: "Download a dispute document — POST /disputes/{id}/documents/{doc_id}"
+scenario: "Call POST /disputes/{id}/documents/{doc_id}."
+required: false
+source: actions
+observability: polling
+tags:
+  - disputes
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+matcher:
+  type: DOCUMENT_SINGLE
+  resource: DISPUTES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

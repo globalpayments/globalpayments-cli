@@ -1,0 +1,23 @@
+id: hold
+name: "Hold: place a captured sale on hold (amount 5003)"
+scenario: "POST /transactions amount 5003, then POST /transactions/{id}/hold."
+required: true
+observability: polling
+tags:
+  - risk
+  - hold
+  - pending-review
+mode: latest
+# Covers POST /transactions/{id}/hold. Leave this transaction held.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 5003
+expect:
+  latest:
+    statusIn:
+      - PENDING_REVIEW
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

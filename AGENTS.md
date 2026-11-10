@@ -11,7 +11,10 @@ Humans: see [README.md](README.md). This file is the contract, stated once.
 `globalpayments` is an **observer**. It never creates transactions.
 
 It polls the Global Payments API for transactions *you have already sent*, matches
-them against certification cases, and reports whether each case is satisfied.
+them against certification cases, and reports whether each case is satisfied. Cases
+with `source: actions` are judged against `GET /actions`, the log of every API request,
+which is how endpoints that never create a transaction (payers, tokens, disputes,
+settlement, merchants) are certified.
 
 The single most common misdiagnosis is treating a `pending` case as a bug. It is not.
 `pending` means *no matching transaction was observed*. The fix is almost always to
@@ -307,11 +310,12 @@ or a real description — that is intentional.
 
 ```bash
 npm run verify    # typecheck + tests + build + build-level smoke. Use this.
-npm test          # vitest, 201 tests
+npm test          # vitest
 npm run typecheck # tsc --noEmit, strict
 npm run build     # tsup → dist/, copies src/packs → dist/packs
 npm run smoke     # contract checks against dist/bin.js (needs a build; no network)
 npm run dev -- <args>   # run from source, e.g. npm run dev -- explain --json
+npm run verify:actions  # SANDBOX ONLY: confirm actions-case action types (--apply to update cases)
 ```
 
 **Finish every change with `npm run verify`.**
@@ -360,3 +364,23 @@ next build.
   throws when an `error` event has no listener, so the reserved name turned a swallowed
   403 into an `E_INTERNAL` crash and made `OBSERVATION_FAILED` unreachable. Do not
   rename it back.
+- Actions cases reuse the transaction pipeline: `adaptGpActionObservation` projects an
+  action onto `ObservedTxn` (`type` = action type, `status` = resource status,
+  `responseCode` = HTTP status). Add actions-only matcher fields to `matching.ts` *and*
+  `buildMatcherChecks` together, or rule 4 breaks.
+- Each feed fails independently. An `/actions` outage marks only actions cases
+  `OBSERVATION_FAILED`; `pollFailed` is true only when every feed the run needs failed.
+- `fetchActionsPage` (diagnostic enrichment) swallows errors by design;
+  `fetchRecentActionsPaginated` (primary evidence) must throw. Do not merge them.
+- The observer's own `CREATE_TOKEN`, `TRANSACTION_LIST`, and `ACTION_LIST` actions are
+  filtered by `app_id`. If the integration shares the observer's credentials, cases on
+  those three action types can never pass.
+- Some endpoints share an action type (`GET /transactions` and
+  `GET /settlement/transactions` both log `TRANSACTION_LIST`). Such cases are
+  `observability: partial`; do not pretend they are distinguishable.
+- `/actions` filters by day (`from_time_created` is a date). The exact window is
+  re-applied client-side. New actions can take several seconds to appear.
+- GP returns some action timestamps without a zone (`GET_CHALLENGE_RESULT` sends
+  `2026-11-03T14:31:44.912`, no `Z`). They are UTC. `adaptGpActionObservation`
+  normalizes `timeCreated` to UTC ISO; never `Date.parse` a raw GP timestamp, or the
+  machine's UTC offset shifts it out of the window.

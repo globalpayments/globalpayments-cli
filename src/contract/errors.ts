@@ -1,6 +1,7 @@
 import { EXIT_CODES, type ExitCode } from './exit-codes.js';
 import { ConfigLoadError } from '../config/load.js';
 import { TransactionsApiError } from '../gpapi/transactions.js';
+import { ActionsApiError } from '../gpapi/actions.js';
 import {
   AuthFailureError,
   InvalidCredentialsError,
@@ -185,12 +186,12 @@ export function toGlobalPaymentsError(error: unknown): GlobalPaymentsError {
     });
   }
 
-  // A rejection from /transactions, not from the auth handshake. Tokens are cached, so
+  // A rejection from /transactions or /actions, not from the auth handshake. Tokens are cached, so
   // a revoked app or an unpermitted account surfaces here rather than as an
   // InvalidCredentialsError, and without this branch it would fall through to
   // E_INTERNAL — telling the caller to report a bug in this tool for what is actually
   // their credentials or a transient outage.
-  if (error instanceof TransactionsApiError) {
+  if (error instanceof TransactionsApiError || error instanceof ActionsApiError) {
     if (error.status === 401 || error.status === 403) {
       return new GlobalPaymentsError(ERROR_CODES.E_AUTH_INVALID_CREDENTIALS, error.message, {
         details: { status: error.status },

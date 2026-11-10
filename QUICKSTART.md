@@ -48,7 +48,7 @@ globalpayments readiness
   ✓ GP API token exchange
       Token acquired from https://apis.sandbox.globalpay.com/ucp; type=Bearer, expiresIn=86399s.
   ✓ Certification suites available
-      2 bundled suite(s): global-core, global-ecommerce
+      13 bundled suite(s): global-3ds, global-alternative-payments, global-auth-lifecycle, global-card-present, global-core, global-disputes, global-ecommerce, global-multicurrency, global-pay-by-link, global-payment-actions, global-platform, global-reporting, global-tokenization
 
 Ready for certification runs.
 ```

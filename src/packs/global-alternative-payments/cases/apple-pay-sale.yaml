@@ -1,0 +1,22 @@
+id: apple-pay-sale
+name: "Digital wallet: Apple Pay sale (amount 7005)"
+scenario: "POST /transactions with payment_method.digital_wallet provider APPLEPAY, amount 7005."
+required: false
+observability: polling
+tags:
+  - digital-wallet
+  - apple-pay
+mode: latest
+# The list endpoint does not expose the wallet provider; amount 7005 identifies it.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 7005
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

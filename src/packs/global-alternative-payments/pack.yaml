@@ -1,0 +1,18 @@
+id: global-alternative-payments
+name: Global Payments Alternative & Digital Payments — Test Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+  channel: CNP
+tags:
+  - global
+  - ecomm
+  - cnp
+  - gp-api
+  - apm
+  - wallets
+  - ach
+cases:
+  directory: cases

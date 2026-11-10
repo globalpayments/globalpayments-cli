@@ -1,0 +1,21 @@
+id: payment-method-delete
+name: "Delete a payment method — DELETE /payment-methods/{id}"
+scenario: "Call DELETE /payment-methods/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: PAYMENT_METHOD_DELETE
+  resource: PAYMENT_METHODS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

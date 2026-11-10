@@ -14,6 +14,8 @@ export interface CaseSummary {
   required: boolean;
   mode: string;
   observability: string;
+  /** Feed the case is judged against: `transactions` or `actions`. */
+  source: string;
   tags: string[];
   scenario?: string;
   formQuestion?: number;
@@ -47,6 +49,7 @@ function summarize(packId: string, caze: CertificationCase): CaseSummary {
     required: caze.required,
     mode: caze.mode ?? 'latest',
     observability: caze.observability ?? 'polling',
+    source: caze.source ?? 'transactions',
     tags: caze.tags ?? [],
     ...(caze.scenario ? { scenario: caze.scenario } : {}),
     ...(caze.formQuestion !== undefined ? { formQuestion: caze.formQuestion } : {})
@@ -79,10 +82,11 @@ function renderDetail(data: CaseDetail): void {
   console.log(pc.bold('Required:'), data.required ? pc.yellow('yes') : 'no');
   console.log(pc.bold('Mode:'), data.mode);
   console.log(pc.bold('Observability:'), data.observability);
+  console.log(pc.bold('Source:'), data.source === 'actions' ? 'GET /actions (API request log)' : 'GET /transactions');
   if (data.tags.length > 0) console.log(pc.bold('Tags:'), data.tags.join(', '));
   if (data.scenario) console.log(pc.bold('Scenario:'), data.scenario);
   console.log();
-  console.log(pc.bold('Matcher'), pc.gray('(selects which transactions this case judges)'));
+  console.log(pc.bold('Matcher'), pc.gray(`(selects which ${data.source === 'actions' ? 'actions' : 'transactions'} this case judges)`));
   for (const [key, value] of Object.entries(data.matcher)) {
     console.log(`  ${key}: ${JSON.stringify(value)}`);
   }

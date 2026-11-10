@@ -1,0 +1,21 @@
+id: link-get
+name: "Get a payment link — GET /links/{id}"
+scenario: "Call GET /links/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - links
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: LINK_SINGLE
+  resource: LINKS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

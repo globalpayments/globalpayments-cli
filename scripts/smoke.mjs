@@ -111,6 +111,18 @@ check('missing config: exits 3', missingConfig?.exitCode === 3, `got ${missingCo
 const badFlag = invoke(['run', '--not-a-real-flag']);
 check('unknown flag: exits 2', badFlag.exitCode === 2, `got ${badFlag.exitCode}`);
 
+const badFlagJson = invokeJson(['run', '--not-a-real-flag'], 'run (unknown flag)');
+check('unknown flag (json): exits 2', badFlagJson?.exitCode === 2, `got ${badFlagJson?.exitCode}`);
+check('unknown flag (json): E_USAGE', badFlagJson?.error?.code === 'E_USAGE', badFlagJson?.error?.code);
+check('unknown flag (json): command is run', badFlagJson?.command === 'run', badFlagJson?.command);
+
+const missingArg = invokeJson(['cases', 'show'], 'cases show (missing argument)');
+check('missing argument (json): E_USAGE', missingArg?.error?.code === 'E_USAGE', missingArg?.error?.code);
+check('missing argument (json): command is cases.show', missingArg?.command === 'cases.show', missingArg?.command);
+
+const unknownCommand = invokeJson(['definitely-not-a-command'], 'unknown command');
+check('unknown command (json): E_USAGE', unknownCommand?.error?.code === 'E_USAGE', unknownCommand?.error?.code);
+
 // --- text mode still works -------------------------------------------------
 const textPacks = invoke(['packs', 'list']);
 check('packs list (text): exits 0', textPacks.exitCode === 0);

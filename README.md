@@ -423,7 +423,9 @@ All variables are read by `globalpayments init`, `globalpayments doctor`, and al
 
 Each polling cycle:
 
-1. **Fetch transactions** — Query GP API for recent transactions in a sliding time window
+1. **Fetch observations** — Query GP API for recent records in a sliding time window:
+   `GET /transactions` for transaction cases, `GET /actions` for actions cases. A feed
+   is only polled when an active case uses it.
 2. **Evaluate all cases** — For each active case, find matching transactions
 3. **Apply latest-match-wins** — Re-evaluate each case using only the newest match in the window
 4. **Persist results** — Write `.globalpayments/results/latest.json` and timestamped history
@@ -448,6 +450,39 @@ Each polling cycle:
 
 Cases use YAML format with three parts: **matcher**, **expectations**, and optional **evaluator**.
 
+### Source
+
+`source` selects the GP API feed a case is judged against. It defaults to `transactions`.
+
+| `source` | Feed | `type` means | `status` means | `responseCode` means |
+|---|---|---|---|---|
+| `transactions` | `GET /transactions` | `SALE` or `REFUND` | transaction status (`CAPTURED`, `PREAUTHORIZED`, …) | gateway result, often absent |
+| `actions` | `GET /actions` — the log of every API request | action type (`PAYER_CREATE`, `CAPTURE`, `VERIFY`, …) | resource status | HTTP status of the request (`"200"`) |
+
+Actions cases reach every API endpoint, including ones that never create a transaction
+(payers, tokens, disputes, settlement, merchants). Typical shape:
+
+```yaml
+source: actions
+matcher:
+  type: PAYER_CREATE     # action type
+  resource: PAYERS       # optional: GP resource
+expect:
+  latest:
+    responseCodeIn: ["200", "201"]
+```
+
+Things to know about the actions feed:
+- The app running `globalpayments` needs permission to list actions (`ACT_GET_List`).
+- `CREATE_TOKEN`, `TRANSACTION_LIST`, and `ACTION_LIST` issued by the observing app are
+  ignored, because `globalpayments` makes those calls itself while polling.
+- A rejected request is logged too, so the case fails with the HTTP status and GP
+  error code instead of staying pending.
+- Bundled actions cases are tagged `action-type-confirmed`, `action-type-documented`, or
+  `action-type-inferred`. Inferred cases are optional; if one stays pending,
+  `globalpayments diagnose` shows the action type GP actually logged.
+  `npm run verify:actions` confirms action types against a GP sandbox.
+
 ### Matcher
 Defines which transactions to match. AND semantics (all specified fields must match).
 
@@ -462,6 +497,7 @@ matcher:
   accountName: my-account          # account name
   cardBrand: Visa                  # Visa, Mastercard, etc.
   last4: "1234"                    # last 4 digits of card
+  resource: PAYERS                 # GP resource (actions cases)
 ```
 
 ### Expectations

@@ -1,0 +1,27 @@
+id: incremental-auth
+name: "Incremental: increase a pre-authorization (amount 5001)"
+scenario: "POST /transactions capture_mode LATER amount 5001, then POST /transactions/{id}/incremental."
+required: false
+observability: partial
+tags:
+  - authorize
+  - incremental
+  - hospitality
+mode: latest
+# OBSERVABILITY: partial
+# Proves the 5001 pre-authorization exists. Whether the list endpoint reports the
+# original or incremented total is not guaranteed; if it reports the new total this
+# case stays pending. Confirm the /incremental response manually.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 5001
+expect:
+  latest:
+    statusIn:
+      - PREAUTHORIZED
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

@@ -1,0 +1,22 @@
+id: fma-account-get
+name: "Get funds-management account details — GET /merchants/{MER_id}/accounts/{FMA_id}"
+scenario: "Call GET /merchants/{MER_id}/accounts/{FMA_id}."
+required: false
+source: actions
+observability: partial
+tags:
+  - platform
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+# Likely logs the same action type as GET /accounts/{id}. GP logs this request with the same action type as another endpoint, so this case cannot tell them apart.
+matcher:
+  type: ACCOUNT_SINGLE
+  resource: ACCOUNTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative
