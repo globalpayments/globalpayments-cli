@@ -1,0 +1,19 @@
+id: global-platform
+name: Global Payments Partner Platform — API Request Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: platform
+tags:
+  - global
+  - gp-api
+  - actions
+  - platform
+  - merchants
+  - accounts
+  - orders
+  - funds
+  - transfers
+cases:
+  directory: cases

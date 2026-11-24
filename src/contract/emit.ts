@@ -117,10 +117,15 @@ export function emit<T>(
 export async function runCommand<T>(
   command: string,
   options: EmitOptions,
-  handler: () => Promise<CommandOutcome<T>>
+  handler: (reportProgress: (text: string) => void) => Promise<CommandOutcome<T>>
 ): Promise<Envelope<T>> {
   try {
-    const outcome = await handler();
+    const reportProgress = (text: string): void => {
+      if (!options.json) {
+        write(options.stdout ?? process.stdout, `${text}\n`);
+      }
+    };
+    const outcome = await handler(reportProgress);
     return emit(command, outcome, options);
   } catch (error) {
     const gpError = toGlobalPaymentsError(error);

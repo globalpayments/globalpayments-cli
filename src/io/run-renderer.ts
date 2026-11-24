@@ -6,6 +6,7 @@ import { formatDuration } from '../util/index.js';
 export interface RunObservationLike {
   pollCycles: number;
   transactionsObserved: number;
+  actionsObserved: number;
   timedOut: boolean;
   elapsedMs: number;
   observationFailed?: boolean;
@@ -55,17 +56,15 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
     ];
   }
 
-  if (diagnosed.length > 0) {
     actions.push({
       reason: `Get the field-level cause and an ordered fix plan for all ${diagnosed.length} non-passing case(s).`,
       command: 'globalpayments diagnose --json'
     });
-  }
 
-  if (view.observation.transactionsObserved === 0) {
+  if (view.observation.transactionsObserved === 0 && view.observation.actionsObserved === 0) {
     actions.push({
       reason:
-        'No transactions were observed in the polling window. globalpayments only observes; send the transactions this suite expects, then rerun.',
+        'No transactions or actions were observed in the polling window. Certification commands only observe; send the transactions or actions this suite expects, then rerun.',
       command: `globalpayments cases list --cert ${pack} --json`
     });
   } else if (pending.length > 0) {
@@ -152,7 +151,7 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
     );
   } else if (view.observation.transactionsObserved === 0) {
     log();
-    log(pc.yellow('No transactions were observed. globalpayments observes only; it never creates transactions.'));
+    log(pc.yellow('No transactions were observed. Certification commands observe only; they do not send transactions.'));
   }
   if (view.observation.timedOut) {
     log(pc.yellow(`Timed out after ${formatDuration(view.observation.elapsedMs)}; results are partial.`));

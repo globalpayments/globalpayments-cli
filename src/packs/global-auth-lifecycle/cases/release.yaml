@@ -1,0 +1,25 @@
+id: release
+name: "Release: release a held sale (amount 5004)"
+scenario: "POST /transactions amount 5004, POST /transactions/{id}/hold, then POST /transactions/{id}/release."
+required: false
+observability: partial
+tags:
+  - risk
+  - release
+mode: latest
+# OBSERVABILITY: partial
+# Release returns the transaction to its prior status, so the end state is
+# indistinguishable from a sale that was never held. Use a distinct amount (5004)
+# from the hold case and confirm the /hold call manually.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 5004
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

@@ -37,8 +37,7 @@ export interface EnvVar {
 }
 
 /**
- * Environment inputs. These are the only external state globalpayments reads besides the
- * optional config file.
+ * GP API environment inputs, documented for the live CLI contract.
  */
 export const ENVIRONMENT_VARIABLES: EnvVar[] = [
   {
@@ -52,7 +51,7 @@ export const ENVIRONMENT_VARIABLES: EnvVar[] = [
     description: 'GP API application key. Never printed; redacted from all output and artifacts.'
   },
   {
-    name: 'GP_ENVIRONMENT',
+    name: 'GP_API_ENVIRONMENT',
     required: false,
     default: 'sandbox',
     description: "Target GP environment: 'sandbox' or 'production'."
@@ -64,7 +63,7 @@ export const ENVIRONMENT_VARIABLES: EnvVar[] = [
     description: 'GP API version header sent with every request.'
   },
   {
-    name: 'GP_ACCOUNT_NAME',
+    name: 'GP_API_ACCOUNT_NAME',
     required: false,
     description: 'Restricts transaction polling and matching to a single GP account.'
   }
@@ -78,7 +77,7 @@ export const ENVIRONMENT_VARIABLES: EnvVar[] = [
  */
 export const CONCEPTS: Record<string, string> = {
   observer:
-    'globalpayments never creates transactions. It polls the GP API for transactions you have already generated and judges them against certification cases. If nothing is passing, the usual cause is that no matching transaction has been sent yet.',
+    'Certification run and watch commands only observe transactions and actions already sent by your integration. The CLI also supports authenticated API GET and sandbox-only POST requests, transaction lookup, local synthetic webhooks, request-log tailing, and AI-agent setup.',
   pack: 'A named, versioned collection of certification cases. Packs may extend other packs; child cases override parent cases with the same local id.',
   case: 'One certification assertion: a matcher that selects transactions, plus an expectation those transactions must satisfy.',
   caseAddress: `A case's globally unique id, formed as <packId>${ID_SEPARATOR}<caseId>. This is the id used in every result, every state entry, and every command that accepts a case.`,
@@ -145,7 +144,7 @@ export const WORKFLOWS: Workflow[] = [
       {
         command: 'globalpayments diagnose --json',
         purpose:
-          'Read `data.fixPlan`. Each entry names the field to change, its current value, and its required value. Apply `fixPlan[0]` to the request your own integration sends, then send that transaction — globalpayments never creates one.'
+          'Read `data.fixPlan`. Each entry names the field to change, its current value, and its required value. Apply `fixPlan[0]` to your integration request, or send the corrected request through `api post` when testing in sandbox.'
       },
       {
         command: 'globalpayments diagnose <packId>:<caseId> --json',
@@ -159,6 +158,37 @@ export const WORKFLOWS: Workflow[] = [
     goal: 'Gate a pipeline on certification status.',
     steps: [
       { command: 'globalpayments run --cert <packId> --json', purpose: 'Exit 0 when all required cases pass, 1 when they do not.' }
+    ]
+  },
+  {
+    id: 'sandbox-setup',
+    goal: 'Configure local access to an existing GP sandbox app and validate connectivity.',
+    steps: [
+      { command: 'globalpayments sandbox create', purpose: 'Save existing sandbox app credentials to .env without displaying the app key.' },
+      { command: 'globalpayments doctor --json', purpose: 'Verify the credentials and sandbox API connectivity.' }
+    ]
+  },
+  {
+    id: 'direct-api',
+    goal: 'Inspect a resource or send a sandbox API request.',
+    steps: [
+      { command: 'globalpayments api get /transactions --json', purpose: 'Read an authenticated GP API resource.' },
+      { command: 'globalpayments api post /transactions --data <json> --json', purpose: 'Send a JSON request; POST is blocked outside sandbox.' }
+    ]
+  },
+  {
+    id: 'local-webhook',
+    goal: 'Exercise a local webhook handler without exposing it publicly or creating a live GP webhook.',
+    steps: [
+      { command: 'globalpayments listen --forward-to http://localhost:3000/webhooks', purpose: 'Start a loopback-only listener forwarding to a local handler.' },
+      { command: 'globalpayments trigger transaction.captured', purpose: 'Send a signed synthetic event to the listener.' }
+    ]
+  },
+  {
+    id: 'agent-setup',
+    goal: 'Install Global Payments MCP tools and SDK skills for an AI coding agent.',
+    steps: [
+      { command: 'globalpayments agent setup --editor vscode', purpose: 'Install the sandbox-restricted MCP server, SDK skills, and managed project guidance.' }
     ]
   }
 ];
@@ -245,7 +275,7 @@ export function buildManifest(program: Command): Manifest {
     envelopeSchemaVersion: ENVELOPE_SCHEMA_VERSION,
     resultSchemaVersion: RESULT_SCHEMA_VERSION,
     description:
-      'Observer-only certification CLI for Global Payments. Polls the GP API for transactions, matches them to certification cases, and reports latest-match-wins results.',
+      'Global Payments developer CLI for certification observation, sandbox API access, transaction lookup, local webhook testing, request logs, and AI-agent tooling.',
     concepts: CONCEPTS,
     identifiers: {
       caseAddress: `<packId>${ID_SEPARATOR}<caseId>`,
@@ -275,7 +305,8 @@ export function buildManifest(program: Command): Manifest {
     environment: ENVIRONMENT_VARIABLES,
     artifacts: [
       { path: '.globalpayments/results/latest.json', description: 'The most recent run result. Read by `globalpayments report`.' },
-      { path: '.globalpayments/results/history/<timestamp>.json', description: 'Immutable per-run archive.' }
+      { path: '.globalpayments/results/history/<timestamp>.json', description: 'Immutable per-run archive.' },
+      { path: '.globalpayments/agent/', description: 'Locally installed MCP server and launcher for AI-agent setup.' }
     ],
     workflows: WORKFLOWS
   };

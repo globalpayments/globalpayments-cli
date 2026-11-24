@@ -1,0 +1,26 @@
+id: reauthorization
+name: "ReAuth: re-authorize a reversed sale (amount 5002)"
+scenario: "POST /transactions amount 5002, POST /transactions/{id}/reversal, then POST /transactions/{id}/reauthorization."
+required: false
+observability: partial
+tags:
+  - authorize
+  - reauthorization
+  - reversal
+mode: latest
+# OBSERVABILITY: partial
+# The end state (authorized again) is observable; the intermediate REVERSED state
+# is not, because only the latest status of a transaction is visible.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 5002
+expect:
+  latest:
+    statusIn:
+      - PREAUTHORIZED
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

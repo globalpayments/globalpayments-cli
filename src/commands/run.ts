@@ -6,10 +6,12 @@ import { persistRunResult } from '../core/result-store.js';
 import { parseDuration } from '../util/index.js';
 import { renderRunSummary, buildRunNextActions } from '../io/run-renderer.js';
 import type { RunResult } from '../types/domain.js';
+import type { EnginePollResult } from '../core/engine.js';
 
 export interface RunObservation {
   pollCycles: number;
   transactionsObserved: number;
+  actionsObserved: number;
   timedOut: boolean;
   elapsedMs: number;
   /**
@@ -56,14 +58,16 @@ export function registerRunCommand(program: Command): void {
         });
 
         let transactionsObserved = 0;
+        let actionsObserved = 0;
         let pollCycles = 0;
         let timedOut = false;
         const startedAt = Date.now();
         const observation = trackObservation(session.engine);
 
-        session.engine.on('cycleComplete', (event: { transactionsFetched: number }) => {
+        session.engine.on('cycleComplete', (event: EnginePollResult) => {
           pollCycles += 1;
           transactionsObserved += event.transactionsFetched;
+          actionsObserved += event.actionsFetched;
         });
         session.engine.on('watchTimeout', () => {
           timedOut = true;
@@ -79,6 +83,7 @@ export function registerRunCommand(program: Command): void {
           observation: {
             pollCycles,
             transactionsObserved,
+            actionsObserved,
             timedOut,
             elapsedMs: Date.now() - startedAt,
             observationFailed: observation.failed

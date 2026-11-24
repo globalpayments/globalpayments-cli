@@ -14,6 +14,7 @@ export interface InteractiveWatchControllerOptions {
 export interface InteractiveWatchUpdate {
   cycleNumber?: number;
   transactionsFetched?: number;
+  actionsFetched?: number;
   cases: CaseRunState[];
   recentTransactions?: TransactionRecord[];
 }

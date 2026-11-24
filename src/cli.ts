@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import { CLI_VERSION } from './contract/version.js';
 import { EXIT_CODES } from './contract/exit-codes.js';
+import { ERROR_CODES, GlobalPaymentsError } from './contract/errors.js';
+import { emit, nextActionsForError } from './contract/emit.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerExplainCommand } from './commands/explain.js';
 import { registerDoctorCommand } from './commands/doctor.js';
@@ -11,6 +13,12 @@ import { registerWatchCommand } from './commands/watch.js';
 import { registerRunCommand } from './commands/run.js';
 import { registerReportCommand } from './commands/report.js';
 import { registerDiagnoseCommand } from './commands/diagnose.js';
+import { registerApiCommands } from './commands/api.js';
+import { registerSandboxCommands } from './commands/sandbox.js';
+import { registerLogsCommand } from './commands/logs.js';
+import { registerWebhookCommands } from './commands/webhooks.js';
+import { registerAgentCommands } from './commands/agent.js';
+import { registerQuickStartCommand } from './commands/quick-start.js';
 
 /**
  * Assemble the CLI.
@@ -25,15 +33,21 @@ export function buildCli(): Command {
   program
     .name('globalpayments')
     .description(
-      'Observer-only certification CLI for Global Payments. Polls the GP API for transactions you have already sent, matches them to certification cases, and reports latest-match-wins results. Run `globalpayments explain --json` for the full machine-readable contract.'
+      'Global Payments developer CLI for certification observation, sandbox API access, transaction lookup, local webhook testing, request logs, and AI-agent tooling. Run `globalpayments explain --json` for the full machine-readable contract.'
     )
     .version(CLI_VERSION);
 
   // Orient
   registerExplainCommand(program);
+  registerQuickStartCommand(program);
   registerInitCommand(program);
   registerDoctorCommand(program);
   registerAuthCommands(program);
+  registerSandboxCommands(program);
+  registerApiCommands(program);
+  registerLogsCommand(program);
+  registerWebhookCommands(program);
+  registerAgentCommands(program);
 
   // Discover
   registerPacksCommands(program);
@@ -59,30 +73,60 @@ export function buildCli(): Command {
  * for "required cases are failing" — making an invocation mistake
  * indistinguishable from a certification result. `exitOverride` maps those onto
  * EXIT_CODES.USAGE (2), while preserving 0 for help and version, which
- * are successful outcomes rather than errors.
+ * are successful outcomes rather than errors. With `--json`, commander's stderr
+ * message is suppressed and the failure is emitted as an `E_USAGE` envelope.
  *
  * Commands set `process.exitCode` via `emit()` rather than exiting directly, so
  * the final exit honours whatever the command already decided.
  */
-function applyExitContract(command: Command): void {
+function applyExitContract(command: Command, json: boolean): void {
+  if (json) {
+    // Commander writes its parse errors to stderr; in JSON mode the envelope reports them instead.
+    command.configureOutput({ outputError: () => {} });
+  }
+
   command.exitOverride((error) => {
     const informational =
       error.code === 'commander.help' ||
       error.code === 'commander.helpDisplayed' ||
       error.code === 'commander.version';
-    process.exit(informational ? EXIT_CODES.OK : EXIT_CODES.USAGE);
+    if (informational) {
+      process.exit(EXIT_CODES.OK);
+    }
+
+    if (json) {
+      const usageError = new GlobalPaymentsError(ERROR_CODES.E_USAGE, error.message.replace(/^error:\s*/i, ''), {
+        details: { commanderCode: error.code }
+      });
+      emit(commandId(command), { error: usageError, nextActions: nextActionsForError(usageError) }, { json: true });
+    }
+    process.exit(EXIT_CODES.USAGE);
   });
 
   for (const child of command.commands) {
-    applyExitContract(child);
+    applyExitContract(child, json);
   }
 }
 
-export async function runCli(argv: string[]): Promise<never> {
+/** The dotted command id used by `explain`, e.g. `cases.show`. The root maps to its own name. */
+function commandId(command: Command): string {
+  const path: string[] = [];
+  for (let current: Command | null = command; current?.parent; current = current.parent) {
+    path.unshift(current.name());
+  }
+  return path.length > 0 ? path.join('.') : command.name();
+}
+
+/** Whether `--json` was requested, ignoring anything after a `--` terminator. */
+function wantsJson(argv: string[]): boolean {
+  const terminator = argv.indexOf('--');
+  return (terminator === -1 ? argv : argv.slice(0, terminator)).includes('--json');
+}
+
+export async function runCli(argv: string[]): Promise<void> {
   const program = buildCli();
-  applyExitContract(program);
+  applyExitContract(program, wantsJson(argv));
 
   await program.parseAsync(argv);
 
-  process.exit(typeof process.exitCode === 'number' ? process.exitCode : EXIT_CODES.OK);
 }

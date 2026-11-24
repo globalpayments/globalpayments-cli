@@ -88,6 +88,10 @@ check(
 const packIds = (packs?.data?.packs ?? []).map((pack) => pack.packId);
 check('packs list: includes global-core', packIds.includes('global-core'), packIds.join(', '));
 
+const quickStart = invokeJson(['quick-start'], 'quick-start');
+check('quick-start: succeeds offline', quickStart?.ok === true);
+check('quick-start: returns tutorial steps', Array.isArray(quickStart?.data?.steps) && quickStart.data.steps.length > 0);
+
 // --- cases: addresses are canonical and never double-namespaced ------------
 const cases = invokeJson(['cases', 'list', '--cert', 'global-core'], 'cases list');
 check('cases list: succeeds', cases?.ok === true);
@@ -110,6 +114,18 @@ check('missing config: exits 3', missingConfig?.exitCode === 3, `got ${missingCo
 
 const badFlag = invoke(['run', '--not-a-real-flag']);
 check('unknown flag: exits 2', badFlag.exitCode === 2, `got ${badFlag.exitCode}`);
+
+const badFlagJson = invokeJson(['run', '--not-a-real-flag'], 'run (unknown flag)');
+check('unknown flag (json): exits 2', badFlagJson?.exitCode === 2, `got ${badFlagJson?.exitCode}`);
+check('unknown flag (json): E_USAGE', badFlagJson?.error?.code === 'E_USAGE', badFlagJson?.error?.code);
+check('unknown flag (json): command is run', badFlagJson?.command === 'run', badFlagJson?.command);
+
+const missingArg = invokeJson(['cases', 'show'], 'cases show (missing argument)');
+check('missing argument (json): E_USAGE', missingArg?.error?.code === 'E_USAGE', missingArg?.error?.code);
+check('missing argument (json): command is cases.show', missingArg?.command === 'cases.show', missingArg?.command);
+
+const unknownCommand = invokeJson(['definitely-not-a-command'], 'unknown command');
+check('unknown command (json): E_USAGE', unknownCommand?.error?.code === 'E_USAGE', unknownCommand?.error?.code);
 
 // --- text mode still works -------------------------------------------------
 const textPacks = invoke(['packs', 'list']);

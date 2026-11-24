@@ -1,0 +1,21 @@
+id: device-sync
+name: "Synchronize a device — POST /devices"
+scenario: "Call POST /devices."
+required: false
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+# Matches any successful request on the DEVICES resource; POST /devices is its only endpoint.
+matcher:
+  resource: DEVICES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

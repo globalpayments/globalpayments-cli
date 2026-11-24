@@ -1,6 +1,9 @@
 import { EXIT_CODES, type ExitCode } from './exit-codes.js';
 import { ConfigLoadError } from '../config/load.js';
 import { TransactionsApiError } from '../gpapi/transactions.js';
+import { ActionsApiError } from '../gpapi/actions.js';
+import { GpApiRequestError, GpApiRequestInputError } from '../gpapi/request.js';
+import { LocalWebhookDeliveryError, LocalWebhookInputError } from '../io/local-webhook.js';
 import {
   AuthFailureError,
   InvalidCredentialsError,
@@ -30,6 +33,9 @@ export const ERROR_CODES = {
   E_CASE_NOT_FOUND: 'E_CASE_NOT_FOUND',
   E_RESULT_NOT_FOUND: 'E_RESULT_NOT_FOUND',
   E_CERT_REQUIRED_CASES_FAILING: 'E_CERT_REQUIRED_CASES_FAILING',
+  E_API_REJECTED: 'E_API_REJECTED',
+  E_WEBHOOK_DELIVERY: 'E_WEBHOOK_DELIVERY',
+  E_AGENT_SETUP_FAILED: 'E_AGENT_SETUP_FAILED',
   E_INTERNAL: 'E_INTERNAL'
 } as const;
 
@@ -51,7 +57,10 @@ export const ERROR_CODE_EXIT: Record<ErrorCode, ExitCode> = {
   E_CASE_NOT_FOUND: EXIT_CODES.NOT_FOUND,
   E_RESULT_NOT_FOUND: EXIT_CODES.NOT_FOUND,
   E_CERT_REQUIRED_CASES_FAILING: EXIT_CODES.CERT_FAILED,
-  E_INTERNAL: EXIT_CODES.INTERNAL
+  E_INTERNAL: EXIT_CODES.INTERNAL,
+  E_API_REJECTED: EXIT_CODES.API_REJECTED,
+  E_WEBHOOK_DELIVERY: EXIT_CODES.WEBHOOK_DELIVERY,
+  E_AGENT_SETUP_FAILED: EXIT_CODES.SETUP_FAILED
 };
 
 /**
@@ -70,7 +79,7 @@ export const ERROR_CODE_REMEDIATION: Record<ErrorCode, string> = {
   E_AUTH_MISSING_CREDENTIALS:
     'Set GP_API_APP_ID and GP_API_APP_KEY in your environment or .env file, then run `globalpayments doctor --json`.',
   E_AUTH_INVALID_CREDENTIALS:
-    'The GP API rejected these credentials. Verify GP_API_APP_ID / GP_API_APP_KEY and that GP_ENVIRONMENT matches the credentials.',
+    'The GP API rejected these credentials. Verify GP_API_APP_ID / GP_API_APP_KEY and that GP_API_ENVIRONMENT matches the credentials.',
   E_AUTH_FAILED: 'Run `globalpayments doctor --json` to isolate which part of the auth handshake is failing.',
   E_AUTH_MALFORMED_RESPONSE:
     'The GP API returned an unexpected token payload. Verify GP_API_VERSION and retry; if it persists, report a bug.',
@@ -81,7 +90,10 @@ export const ERROR_CODE_REMEDIATION: Record<ErrorCode, string> = {
   E_RESULT_NOT_FOUND: 'No saved result at that path. Run `globalpayments run --cert <packId>` first to produce one.',
   E_CERT_REQUIRED_CASES_FAILING:
     'Inspect the failing cases in `data.cases`. Each carries a `reason` explaining the mismatch; `globalpayments cases show <caseId> --json` reveals what the case expects.',
-  E_INTERNAL: 'This is a bug in globalpayments. Rerun with `--json` and include the output in a bug report.'
+  E_INTERNAL: 'This is a bug in globalpayments. Rerun with `--json` and include the output in a bug report.',
+  E_API_REJECTED: 'The GP API rejected the request. Review `error.details.response` and correct the request before retrying.',
+  E_WEBHOOK_DELIVERY: 'Verify the local listener is running and the forwarding URL and handler are correct.',
+  E_AGENT_SETUP_FAILED: 'Check the reported editor/setup step, npm/network access, and filesystem permissions, then rerun `globalpayments agent setup`.'
 };
 
 export interface GlobalPaymentsErrorOptions {
@@ -156,6 +168,42 @@ export function toGlobalPaymentsError(error: unknown): GlobalPaymentsError {
     return error;
   }
 
+  if (error instanceof GpApiRequestInputError) {
+    return new GlobalPaymentsError(ERROR_CODES.E_USAGE, error.message, { cause: error });
+  }
+
+  if (error instanceof LocalWebhookInputError) {
+    return new GlobalPaymentsError(ERROR_CODES.E_USAGE, error.message, { cause: error });
+  }
+
+  if (error instanceof LocalWebhookDeliveryError) {
+    return new GlobalPaymentsError(ERROR_CODES.E_WEBHOOK_DELIVERY, error.message, {
+      ...(error.status !== undefined ? { details: { status: error.status } } : {}),
+      cause: error
+    });
+  }
+
+  if (error instanceof GpApiRequestError) {
+    if (error.status === 401 || error.status === 403) {
+      return new GlobalPaymentsError(ERROR_CODES.E_AUTH_INVALID_CREDENTIALS, error.message, {
+        details: { status: error.status, path: error.path },
+        cause: error
+      });
+    }
+
+    if (error.status >= 500 || error.status === 0) {
+      return new GlobalPaymentsError(ERROR_CODES.E_NETWORK, error.message, {
+        details: { status: error.status, path: error.path },
+        cause: error
+      });
+    }
+
+    return new GlobalPaymentsError(ERROR_CODES.E_API_REJECTED, error.message, {
+      details: { status: error.status, path: error.path, response: error.responseBody },
+      cause: error
+    });
+  }
+
   if (error instanceof ConfigLoadError) {
     return new GlobalPaymentsError(CONFIG_ERROR_CODES[error.code] ?? ERROR_CODES.E_CONFIG_INVALID, error.message, {
       details: { configPath: error.configPath, configErrorCode: error.code },
@@ -185,12 +233,12 @@ export function toGlobalPaymentsError(error: unknown): GlobalPaymentsError {
     });
   }
 
-  // A rejection from /transactions, not from the auth handshake. Tokens are cached, so
+  // A rejection from /transactions or /actions, not from the auth handshake. Tokens are cached, so
   // a revoked app or an unpermitted account surfaces here rather than as an
   // InvalidCredentialsError, and without this branch it would fall through to
   // E_INTERNAL — telling the caller to report a bug in this tool for what is actually
   // their credentials or a transient outage.
-  if (error instanceof TransactionsApiError) {
+  if (error instanceof TransactionsApiError || error instanceof ActionsApiError) {
     if (error.status === 401 || error.status === 403) {
       return new GlobalPaymentsError(ERROR_CODES.E_AUTH_INVALID_CREDENTIALS, error.message, {
         details: { status: error.status },

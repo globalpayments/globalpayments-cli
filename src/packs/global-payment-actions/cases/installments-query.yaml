@@ -1,0 +1,21 @@
+id: installments-query
+name: "Confirm available installment plans — POST /installments"
+scenario: "Call POST /installments."
+required: false
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+# Installments are region-specific; optional.
+matcher:
+  type: INSTALLMENT_QUERY
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

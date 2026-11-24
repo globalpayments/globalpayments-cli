@@ -47,4 +47,48 @@ describe('gpapi client', () => {
     expect(init?.method).toBe('GET');
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer tok_client');
   });
+
+  it('does not scope the actions feed to the transaction account', async () => {
+    const authProvider: AuthProvider = {
+      getToken: vi.fn().mockResolvedValue({ accessToken: 'tok_client', metadata: { tokenType: 'bearer' } })
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          actions: [
+            {
+              id: 'ACT_1',
+              type: 'PAYER_CREATE',
+              resource: 'PAYERS',
+              http_response_code: '200',
+              account_name: 'tokenization',
+              time_created: '2026-01-01T00:02:00Z'
+            }
+          ]
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    );
+
+    const client = new HttpGpApiClient({
+      authProvider,
+      authInput: { appId: 'app-id', appKey: 'app-key', environment: 'sandbox', apiVersion: '2021-03-22' },
+      accountName: 'merchant-account',
+      fetchImpl: fetchMock,
+      maxPagesPerPoll: 1
+    });
+
+    const records = await client.fetchRecentActions({
+      fromTimeCreated: '2026-01-01T00:00:00Z',
+      toTimeCreated: '2026-01-01T00:05:00Z',
+      page: 1,
+      pageSize: 10,
+      order: 'DESC'
+    });
+
+    const [url] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toContain('/actions?');
+    expect(String(url)).not.toContain('account_name=');
+    expect(records.map((r) => r.accountName)).toEqual(['tokenization']);
+  });
 });

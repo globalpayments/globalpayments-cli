@@ -1,0 +1,22 @@
+id: batch-close
+name: "Close a batch — POST /batches/{id} or POST /batches"
+scenario: "Call POST /batches/{id} or POST /batches."
+required: true
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+# Closing by id and closing the open batch log the same action type; one case covers either.
+matcher:
+  type: CLOSE
+  resource: BATCHES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

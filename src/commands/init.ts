@@ -13,10 +13,10 @@ GP_API_APP_ID=your_app_id_here
 GP_API_APP_KEY=your_app_key_here
 
 # Optional: target environment (default: sandbox)
-# GP_ENVIRONMENT=sandbox
+# GP_API_ENVIRONMENT=sandbox
 
 # Optional: restrict matching to a single GP account
-# GP_ACCOUNT_NAME=your_account_name
+# GP_API_ACCOUNT_NAME=your_account_name
 
 # Optional: pin the GP API version (default: 2021-03-22)
 # GP_API_VERSION=2021-03-22

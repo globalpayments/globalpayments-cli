@@ -1,0 +1,21 @@
+id: payment-method-edit
+name: "Edit a payment method — PATCH /payment-methods/{id}"
+scenario: "Call PATCH /payment-methods/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: PAYMENT_METHOD_EDIT
+  resource: PAYMENT_METHODS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

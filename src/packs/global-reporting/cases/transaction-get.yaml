@@ -1,0 +1,21 @@
+id: transaction-get
+name: "Get a single transaction — GET /transactions/{id}"
+scenario: "Call GET /transactions/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: TRANSACTION_SINGLE
+  resource: TRANSACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

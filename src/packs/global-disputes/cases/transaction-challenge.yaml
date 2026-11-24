@@ -1,0 +1,22 @@
+id: transaction-challenge
+name: "Challenge a disputed transaction — POST /transactions/{id}/challenge"
+scenario: "Call POST /transactions/{id}/challenge."
+required: false
+source: actions
+observability: polling
+tags:
+  - disputes
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+# Production availability depends on live configuration.
+matcher:
+  type: CHALLENGE
+  resource: TRANSACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

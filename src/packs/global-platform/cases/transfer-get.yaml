@@ -1,0 +1,21 @@
+id: transfer-get
+name: "Get a transfer — GET /transfers/{id}"
+scenario: "Call GET /transfers/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: TRANSFER_SINGLE
+  resource: TRANSFERS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

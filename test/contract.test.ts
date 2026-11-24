@@ -108,6 +108,31 @@ describe('contract: json mode purity', () => {
     expect(rendered).toEqual(['summary']);
     expect(err.text()).toContain('E_CERT_REQUIRED_CASES_FAILING');
   });
+
+  it('keeps progress text inside the output contract', async () => {
+    const textOut = captureStream();
+    await runCommand(
+      'demo',
+      { json: false, stdout: textOut.stream },
+      async (reportProgress) => {
+        reportProgress('streamed update');
+        return { data: { complete: true } };
+      }
+    );
+    expect(textOut.text()).toBe('streamed update\n');
+
+    const jsonOut = captureStream();
+    await runCommand(
+      'demo',
+      { json: true, stdout: jsonOut.stream },
+      async (reportProgress) => {
+        reportProgress('must not appear on stdout');
+        return { data: { complete: true } };
+      }
+    );
+    expect(JSON.parse(jsonOut.text()).data).toEqual({ complete: true });
+    expect(jsonOut.text()).not.toContain('must not appear');
+  });
 });
 
 describe('contract: runCommand normalizes every failure', () => {
@@ -217,18 +242,28 @@ describe('contract: manifest', () => {
     const ids = manifest.commands.map((c) => c.id).sort();
     expect(ids).toEqual(
       [
+        'api.get',
+        'api.post',
+        'agent.setup',
         'auth.test',
         'cases.list',
         'cases.show',
         'diagnose',
+        'quick-start',
         'doctor',
         'explain',
         'init',
+        'listen',
+        'logs.tail',
         'packs.list',
         'packs.show',
         'report',
         'run',
-        'watch'
+        'sandbox.create',
+        'transactions.get',
+        'transactions.testpay',
+        'trigger',
+        'watch',
       ].sort()
     );
   });

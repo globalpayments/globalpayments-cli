@@ -1,0 +1,21 @@
+id: payment-method-get
+name: "Get a payment method — GET /payment-methods/{id}"
+scenario: "Call GET /payment-methods/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: PAYMENT_METHOD_SINGLE
+  resource: PAYMENT_METHODS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

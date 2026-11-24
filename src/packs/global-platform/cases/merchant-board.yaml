@@ -1,0 +1,21 @@
+id: merchant-board
+name: "Board a merchant — POST /merchants"
+scenario: "Call POST /merchants."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: MERCHANT_CREATE
+  resource: MERCHANTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

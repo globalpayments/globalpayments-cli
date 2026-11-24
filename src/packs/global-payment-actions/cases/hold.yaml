@@ -1,0 +1,21 @@
+id: hold
+name: "Hold a transaction — POST /transactions/{id}/hold"
+scenario: "Call POST /transactions/{id}/hold."
+required: false
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+matcher:
+  type: HOLD
+  resource: TRANSACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

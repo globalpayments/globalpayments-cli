@@ -1,3 +1,4 @@
+import type { TransactionRecord } from '../types/domain.js';
 import type { AuthInput, AuthProvider } from './auth.js';
 
 export interface ActionRecord {
@@ -19,6 +20,8 @@ export interface GpActionApiShape {
   timeCreated?: string;
   account_name?: string;
   accountName?: string;
+  app_id?: string;
+  app_name?: string;
 }
 
 export interface ActionsQuery {
@@ -213,4 +216,161 @@ export async function fetchActionsPage(
     }
     return [];
   }
+}
+
+/**
+ * Action types this tool itself generates while observing. They are excluded when
+ * issued by the observing app, otherwise every poll would satisfy (and churn) any
+ * case that asserts on them.
+ */
+export const SELF_GENERATED_ACTION_TYPES: ReadonlySet<string> = new Set([
+  'CREATE_TOKEN',
+  'TRANSACTION_LIST',
+  'ACTION_LIST'
+]);
+
+/**
+ * Project an action onto the observed-record shape the matcher, evaluator, and
+ * diagnosis already understand, so actions-sourced cases reuse one set of rules.
+ *
+ * `type` is the action type, `status` the resource status, and `responseCode` the
+ * HTTP status of the request — the only success signal every action carries.
+ */
+export function adaptGpActionObservation(apiAction: GpActionApiShape): TransactionRecord {
+  const httpCode = apiAction.http_response_code;
+  const errorCode = apiAction.response_code;
+  const timeCreated = apiAction.time_created ?? apiAction.timeCreated;
+  return {
+    id: apiAction.id ?? 'unknown-id',
+    timeCreated: timeCreated ? normalizeGpTime(timeCreated) : new Date(0).toISOString(),
+    type: apiAction.action_type ?? apiAction.type,
+    status: apiAction.resource_status,
+    resource: apiAction.resource,
+    accountName: apiAction.account_name ?? apiAction.accountName,
+    responseCode: httpCode === undefined || httpCode === null ? undefined : String(httpCode),
+    responseMessage: errorCode === undefined || errorCode === null ? undefined : String(errorCode),
+    reference: apiAction.resource_id,
+    raw: apiAction
+  };
+}
+
+export interface RecentActionsQuery {
+  /** ISO-8601 lower bound. The API filters by day, so this is re-applied client-side. */
+  fromTimeCreated: string;
+  /** ISO-8601 upper bound, applied client-side. */
+  toTimeCreated: string;
+  pageSize: number;
+  accountName?: string;
+  /** App id of the observer; its own polling actions are excluded. */
+  observerAppId?: string;
+}
+
+function parseTime(value: string | undefined): number {
+  if (!value) return Number.NaN;
+  return parseGpTime(value);
+}
+
+/**
+ * Parse a GP timestamp as UTC. GP omits the zone on some values: polling-window
+ * bounds use "YYYY-MM-DD HH:MM:SS", and some actions (e.g. GET_CHALLENGE_RESULT)
+ * report `time_created` as "YYYY-MM-DDTHH:MM:SS.sss". `Date.parse` would read either
+ * as local time and shift it by the machine's UTC offset.
+ */
+function parseGpTime(value: string): number {
+  const zoneless = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/.exec(value.trim());
+  return zoneless ? Date.parse(`${zoneless[1]}T${zoneless[2]}Z`) : Date.parse(value);
+}
+
+/** Canonical UTC ISO form, so downstream `Date.parse` callers never see a zoneless value. */
+function normalizeGpTime(value: string): string {
+  const parsed = parseGpTime(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : value;
+}
+
+async function fetchActionsPageStrict(
+  deps: ActionsApiDeps,
+  params: URLSearchParams
+): Promise<GpActionApiShape[]> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const { accessToken } = await deps.authProvider.getToken(deps.authInput);
+  const endpoint = `${normalizeBaseUrl(deps.baseUrl)}/actions?${params.toString()}`;
+
+  const response = await fetchImpl(endpoint, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'X-GP-Version': deps.apiVersion
+    }
+  });
+
+  if (!response.ok) {
+    let details = '';
+    try {
+      details = await response.text();
+    } catch {
+      details = '';
+    }
+    throw new ActionsApiError(
+      `GP API actions request failed (${response.status})${details ? `: ${details}` : ''}`,
+      response.status,
+      isTransientStatus(response.status)
+    );
+  }
+
+  return readActionArray(await response.json());
+}
+
+/**
+ * Read every action in the window, newest first.
+ *
+ * Unlike {@link fetchActionsPage} this throws: when actions are the primary evidence
+ * for a case, a failed read must surface as OBSERVATION_FAILED, not as "nothing was
+ * sent".
+ */
+export async function fetchRecentActionsPaginated(
+  deps: ActionsApiDeps,
+  query: RecentActionsQuery,
+  options: { maxPages?: number } = {}
+): Promise<TransactionRecord[]> {
+  const maxPages = options.maxPages ?? 3;
+  const from = parseGpTime(query.fromTimeCreated);
+  const to = parseGpTime(query.toTimeCreated);
+  const records: TransactionRecord[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const params = buildActionsQueryParams({
+      page,
+      page_size: query.pageSize,
+      order: 'DESC',
+      order_by: 'TIME_CREATED',
+      from_time_created: query.fromTimeCreated.slice(0, 10),
+      ...(query.accountName ? { account_name: query.accountName } : {})
+    });
+
+    const batch = await fetchActionsPageStrict(deps, params);
+    let reachedWindowStart = false;
+
+    for (const action of batch) {
+      const created = parseTime(action.time_created ?? action.timeCreated);
+      if (Number.isFinite(from) && created < from) {
+        reachedWindowStart = true;
+        continue;
+      }
+      if (Number.isFinite(to) && created > to) {
+        continue;
+      }
+      const type = action.action_type ?? action.type;
+      if (query.observerAppId && action.app_id === query.observerAppId && type && SELF_GENERATED_ACTION_TYPES.has(type)) {
+        continue;
+      }
+      records.push(adaptGpActionObservation(action));
+    }
+
+    if (reachedWindowStart || batch.length < query.pageSize) {
+      break;
+    }
+  }
+
+  return records;
 }

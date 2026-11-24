@@ -1,0 +1,22 @@
+id: obtain-result
+name: "Obtain the authentication result — GET /authentications/{id}/result"
+scenario: "Call GET /authentications/{id}/result."
+required: true
+source: actions
+observability: polling
+tags:
+  - 3ds
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (frictionless 3DS2 flow, 2026-11-03).
+# Required to pass the liability-shift data into the sale.
+matcher:
+  type: GET_CHALLENGE_RESULT
+  resource: AUTHENTICATIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

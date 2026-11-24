@@ -1,0 +1,21 @@
+id: transfer-reverse
+name: "Reverse a transfer — POST /transfers/{id}/reversal"
+scenario: "Call POST /transfers/{id}/reversal."
+required: false
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+matcher:
+  type: TRANSFER_REVERSE
+  resource: TRANSFERS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

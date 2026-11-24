@@ -1,0 +1,15 @@
+id: global-card-present
+name: Global Payments Card-Present — Core Test Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: retail
+  channel: CP
+tags:
+  - global
+  - retail
+  - cp
+  - gp-api
+cases:
+  directory: cases

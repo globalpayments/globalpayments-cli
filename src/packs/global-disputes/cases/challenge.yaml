@@ -1,0 +1,21 @@
+id: challenge
+name: "Challenge a dispute with evidence — POST /disputes/{id}/challenge"
+scenario: "Call POST /disputes/{id}/challenge."
+required: true
+source: actions
+observability: polling
+tags:
+  - disputes
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: CHALLENGE
+  resource: DISPUTES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

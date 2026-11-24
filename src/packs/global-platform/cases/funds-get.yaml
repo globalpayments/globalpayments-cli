@@ -1,0 +1,20 @@
+id: funds-get
+name: "Get a fund — GET /merchants/{id}/funds/{FND_id}"
+scenario: "Call GET /merchants/{id}/funds/{FND_id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: FUNDS_SINGLE
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

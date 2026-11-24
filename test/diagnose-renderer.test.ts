@@ -102,7 +102,7 @@ describe('run next actions when the window was never read', () => {
       observation: {
         pollCycles: 1,
         transactionsObserved: 0,
-        timedOut: false,
+        actionsObserved: 0,
         elapsedMs: 10,
         observationFailed
       },

@@ -10,6 +10,7 @@ const PANE_GAP = 3;
 export interface WatchFrameInput {
   cycleNumber?: number;
   transactionsFetched?: number;
+  actionsFetched?: number;
   cases: CaseRunState[];
   recentTransactions?: TransactionRecord[];
   caseDefinitions: Map<string, CertificationCase>;
