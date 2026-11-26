@@ -1,0 +1,21 @@
+id: accept
+name: "Accept liability for a dispute — POST /disputes/{id}/acceptance"
+scenario: "Call POST /disputes/{id}/acceptance."
+required: true
+source: actions
+observability: polling
+tags:
+  - disputes
+  - action-type-documented
+mode: latest
+# Action type taken from GP developer documentation examples.
+matcher:
+  type: ACCEPT
+  resource: DISPUTES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

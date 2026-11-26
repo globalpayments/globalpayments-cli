@@ -1,0 +1,21 @@
+id: initiate
+name: "Initiate 3DS2 authentication — POST /authentications/{id}/initiate"
+scenario: "Call POST /authentications/{id}/initiate."
+required: true
+source: actions
+observability: polling
+tags:
+  - 3ds
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (frictionless 3DS2 flow, 2026-11-03).
+matcher:
+  type: INITIATE
+  resource: AUTHENTICATIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

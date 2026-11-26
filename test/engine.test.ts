@@ -13,10 +13,16 @@ import { CertificationEngine, type StateTransition } from '../src/core/engine.js
 
 // Mock GpApiClient
 class MockGpApiClient implements GpApiClient {
+  private actionsToReturn: TransactionRecord[] = [];
+
   constructor(private transactionsToReturn: TransactionRecord[] = []) {}
 
   async fetchRecentTransactions(): Promise<TransactionRecord[]> {
     return this.transactionsToReturn;
+  }
+
+  async fetchRecentActions(): Promise<TransactionRecord[]> {
+    return this.actionsToReturn;
   }
 
   async fetchActions(_query: ActionsQuery): Promise<ActionRecord[]> {
@@ -25,6 +31,10 @@ class MockGpApiClient implements GpApiClient {
 
   setTransactions(txns: TransactionRecord[]): void {
     this.transactionsToReturn = txns;
+  }
+
+  setActions(actions: TransactionRecord[]): void {
+    this.actionsToReturn = actions;
   }
 }
 

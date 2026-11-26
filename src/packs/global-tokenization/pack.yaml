@@ -1,0 +1,16 @@
+id: global-tokenization
+name: Global Payments Tokenization, Payers & Consents — API Request Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+tags:
+  - global
+  - gp-api
+  - actions
+  - tokenization
+  - payers
+  - consents
+cases:
+  directory: cases

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { statusMark, t } from '../../ui/index.js';
 import { runCommand } from '../../contract/emit.js';
 import { GlobalPaymentsError, ERROR_CODES } from '../../contract/errors.js';
 import { loadObserverConfig } from '../../config/load.js';
@@ -63,10 +63,10 @@ export function registerAuthCommands(program: Command): void {
         return {
           data,
           render: (value) => {
-            console.log(pc.green('✓'), 'Authenticated against', pc.cyan(value.baseUrl));
-            console.log(pc.gray(`  environment=${value.environment} apiVersion=${value.apiVersion}`));
+            console.log(statusMark('pass'), 'Authenticated against', t.accent(value.baseUrl));
+            console.log(t.muted(`  environment=${value.environment} apiVersion=${value.apiVersion}`));
             console.log(
-              pc.gray(
+              t.muted(
                 `  token type=${value.token.type ?? 'unknown'} expiresIn=${value.token.expiresIn ?? 'unknown'}s`
               )
             );

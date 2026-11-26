@@ -1,4 +1,5 @@
-import pc from 'picocolors';
+import { statusMark, t } from '../ui/index.js';
+import { hang, humanCommand, inlineCode } from '../ui/text.js';
 import type { NextAction } from '../contract/envelope.js';
 import type { RunResult } from '../types/domain.js';
 import { formatDuration } from '../util/index.js';
@@ -6,9 +7,16 @@ import { formatDuration } from '../util/index.js';
 export interface RunObservationLike {
   pollCycles: number;
   transactionsObserved: number;
+  /** Records read from `GET /actions`; absent in results saved before the actions feed existed. */
+  actionsObserved?: number;
   timedOut: boolean;
   elapsedMs: number;
   observationFailed?: boolean;
+}
+
+/** Records read from either feed; zero means the window held nothing for any case to judge. */
+function recordsObserved(observation: RunObservationLike): number {
+  return observation.transactionsObserved + (observation.actionsObserved ?? 0);
 }
 
 export interface RunViewModel extends RunResult {
@@ -62,10 +70,10 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
     });
   }
 
-  if (view.observation.transactionsObserved === 0) {
+  if (recordsObserved(view.observation) === 0) {
     actions.push({
       reason:
-        'No transactions were observed in the polling window. globalpayments only observes; send the transactions this suite expects, then rerun.',
+        'No transactions or actions were observed in the polling window. Certification commands only observe; send the transactions or actions this suite expects, then rerun.',
       command: `globalpayments cases list --cert ${pack} --json`
     });
   } else if (pending.length > 0) {
@@ -93,50 +101,51 @@ export function buildRunNextActions(view: RunViewModel): NextAction[] {
 }
 
 function statusIcon(status: string): string {
-  if (status === 'pass') return pc.green('✓');
-  if (status === 'fail') return pc.red('✗');
-  return pc.gray('○');
+  if (status === 'pass') return statusMark('pass');
+  if (status === 'fail') return statusMark('fail');
+  return statusMark('pending');
 }
 
 /** Human-facing summary. Only ever called when `--json` was not supplied. */
 export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) => void): void {
   log();
-  log(pc.bold('Certification result'));
-  log(`  Environment: ${pc.blue(view.environment)}`);
-  log(`  Packs:       ${pc.cyan(view.activePacks.join(', '))}`);
+  log(t.strong('Certification result'));
+  log(`  Environment: ${t.accent(view.environment)}`);
+  log(`  Packs:       ${t.accent(view.activePacks.join(', '))}`);
   log(
     `  Verdict:     ${
       view.observation.observationFailed
-        ? pc.yellow('UNEVALUATED') + ' ' + pc.gray('(the window was never read)')
-        : (view.verdict === 'passed' ? pc.green('PASSED') : pc.red('FAILED')) +
+        ? t.warning('UNEVALUATED') + ' ' + t.muted('(the window was never read)')
+        : (view.verdict === 'passed' ? t.success('PASSED') : t.danger('FAILED')) +
           ' ' +
-          pc.gray(`(${view.required.passing}/${view.required.total} required passing)`)
+          t.muted(`(${view.required.passing}/${view.required.total} required passing)`)
     }`
   );
   log(
-    `  Cases:       ${pc.green(`${view.summary.pass} pass`)}, ${pc.red(`${view.summary.fail} fail`)}, ` +
-      `${pc.gray(`${view.summary.pending} pending`)} of ${view.summary.total}`
+    `  Cases:       ${t.success(`${view.summary.pass} pass`)}, ${t.danger(`${view.summary.fail} fail`)}, ` +
+      `${t.muted(`${view.summary.pending} pending`)} of ${view.summary.total}`
   );
   log(
-    `  Observed:    ${view.observation.transactionsObserved} transaction(s) over ` +
+    `  Observed:    ${view.observation.transactionsObserved} transaction(s)` +
+      `${view.observation.actionsObserved ? `, ${view.observation.actionsObserved} action(s)` : ''} over ` +
       `${view.observation.pollCycles} cycle(s) in ${formatDuration(view.observation.elapsedMs)}`
   );
 
   const notPassing = view.cases.filter((c) => c.status !== 'pass');
   if (notPassing.length > 0) {
     log();
-    log(pc.bold('Not passing:'));
+    log(t.strong('Not passing:'));
     for (const caze of notPassing) {
-      log(`  ${statusIcon(caze.status)} ${pc.cyan(caze.namespacedCaseId)} — ${caze.reason}`);
+      log(`  ${statusIcon(caze.status)} ${t.accent(caze.namespacedCaseId)} — ${hang(caze.reason, 6)}`);
       // The single highest-confidence change that would turn this case green. The
       // full field-level breakdown lives in `globalpayments diagnose`.
       const topFix = caze.diagnosis?.fixes[0];
       if (topFix) {
-        log(`      ${pc.yellow('fix:')} ${topFix.instruction}`);
+        log(`      ${t.warning('fix:')} ${hang(inlineCode(topFix.instruction), 11)}`);
       }
     }
     log();
-    log(pc.gray('Field-level causes and the full fix plan: ') + pc.yellow('globalpayments diagnose'));
+    log(t.muted('Field-level causes and the full fix plan: ') + t.command(humanCommand('globalpayments diagnose')));
   }
 
   // "Nothing was sent" and "we could not look" both show zero transactions. Only the
@@ -144,20 +153,23 @@ export function renderRunSummary(view: RunViewModel, log: (...args: unknown[]) =
   if (view.observation.observationFailed) {
     log();
     log(
-      pc.yellow('The certification window was never read, so no verdict above is meaningful.') +
+      t.warning('The certification window was never read, so no verdict above is meaningful.') +
         '\n' +
-        pc.gray('Do not change your integration in response to this. Run ') +
-        pc.yellow('globalpayments doctor') +
-        pc.gray(' to isolate config, credentials, or connectivity.')
+        hang(
+          t.muted('Do not change your integration in response to this. Run ') +
+            t.command(humanCommand('globalpayments doctor')) +
+            t.muted(' to isolate config, credentials, or connectivity.'),
+          0
+        )
     );
-  } else if (view.observation.transactionsObserved === 0) {
+  } else if (recordsObserved(view.observation) === 0) {
     log();
-    log(pc.yellow('No transactions were observed. globalpayments observes only; it never creates transactions.'));
+    log(t.warning(hang('No transactions or actions were observed. Certification commands observe only; they do not send transactions.', 0)));
   }
   if (view.observation.timedOut) {
-    log(pc.yellow(`Timed out after ${formatDuration(view.observation.elapsedMs)}; results are partial.`));
+    log(t.warning(`Timed out after ${formatDuration(view.observation.elapsedMs)}; results are partial.`));
   }
 
   log();
-  log('Saved:', pc.cyan(view.artifacts.latest));
+  log('Saved:', t.accent(view.artifacts.latest));
 }

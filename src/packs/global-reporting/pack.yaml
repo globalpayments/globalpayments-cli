@@ -1,0 +1,16 @@
+id: global-reporting
+name: Global Payments Reporting & Settlement — API Request Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+tags:
+  - global
+  - gp-api
+  - actions
+  - reporting
+  - settlement
+  - batches
+cases:
+  directory: cases

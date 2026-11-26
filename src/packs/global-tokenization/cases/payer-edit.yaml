@@ -1,0 +1,21 @@
+id: payer-edit
+name: "Edit a payer — PATCH /payers/{id}"
+scenario: "Call PATCH /payers/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: PAYER_EDIT
+  resource: PAYERS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

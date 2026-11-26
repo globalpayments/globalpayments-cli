@@ -24,7 +24,13 @@ export const EXIT_CODES = {
   /** A named resource (pack, case, result artifact) does not exist. */
   NOT_FOUND: 6,
   /** An unexpected internal error. Always a bug in globalpayments. */
-  INTERNAL: 7
+  INTERNAL: 7,
+  /** A request was sent successfully, but the GP API rejected it. */
+  API_REJECTED: 8,
+  /** Delivery of a synthetic webhook to the local receiver failed. */
+  WEBHOOK_DELIVERY: 9,
+  /** A local editor/MCP/skill setup step could not be completed. */
+  SETUP_FAILED: 10
 } as const;
 
 export type ExitCodeName = keyof typeof EXIT_CODES;
@@ -40,7 +46,10 @@ export const EXIT_CODE_DESCRIPTIONS: Record<ExitCodeName, string> = {
   AUTH: 'Authentication with the GP API failed.',
   NETWORK: 'The GP API could not be reached. Usually transient; retry is reasonable.',
   NOT_FOUND: 'A referenced pack, case, or result artifact does not exist.',
-  INTERNAL: 'Unexpected internal failure. Report this as a bug.'
+  INTERNAL: 'Unexpected internal failure. Report this as a bug.',
+  API_REJECTED: 'The GP API rejected the request. Correct the request using the returned API details.',
+  WEBHOOK_DELIVERY: 'Delivery of the synthetic event to the local webhook receiver failed.',
+  SETUP_FAILED: 'A local setup or installation step could not be completed. Check the reported details and retry.'
 };
 
 /** Whether a caller can reasonably retry the same command unchanged. */

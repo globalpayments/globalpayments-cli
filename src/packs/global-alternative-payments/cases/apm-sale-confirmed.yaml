@@ -1,0 +1,24 @@
+id: apm-sale-confirmed
+name: "APM: redirect payment (e.g. PayPal) confirmed (amount 7001)"
+scenario: "POST /transactions with payment_method.apm amount 7001, complete payer redirect, then POST /transactions/{id}/confirmation."
+required: true
+observability: polling
+tags:
+  - apm
+  - confirmation
+  - redirect
+mode: latest
+# Covers POST /transactions/{id}/confirmation. A status of INITIATED or PENDING
+# means the payer completed the redirect but confirmation has not been sent.
+matcher:
+  type: SALE
+  channel: CNP
+  amount: 7001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

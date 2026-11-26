@@ -1,4 +1,4 @@
-import pc from 'picocolors';
+import { statusMark, t } from '../ui/index.js';
 import type { CertificationCase, TransactionRecord } from '../types/domain.js';
 import type { CaseRunState } from '../core/engine.js';
 import { buildCaseDetail, type CaseDetail, type DetailComparisonRow, type DetailValueRow } from './case-details.js';
@@ -10,6 +10,7 @@ const PANE_GAP = 3;
 export interface WatchFrameInput {
   cycleNumber?: number;
   transactionsFetched?: number;
+  actionsFetched?: number;
   cases: CaseRunState[];
   recentTransactions?: TransactionRecord[];
   caseDefinitions: Map<string, CertificationCase>;
@@ -60,10 +61,10 @@ function formatValue(value: unknown): string {
 }
 
 function renderCaseLine(state: CaseRunState, selected: boolean): string {
-  const icon = state.status === 'pass' ? pc.green('✓') : state.status === 'fail' ? pc.red('✗') : pc.gray('○');
-  const status = state.status === 'pass' ? pc.green('PASS') : state.status === 'fail' ? pc.red('FAIL') : pc.gray('PEND');
-  const cursor = selected ? pc.cyan('>') : ' ';
-  const reason = state.status !== 'pass' ? pc.gray(` — ${state.reason}`) : '';
+  const icon = state.status === 'pass' ? statusMark('pass') : state.status === 'fail' ? statusMark('fail') : statusMark('pending');
+  const status = state.status === 'pass' ? t.success('PASS') : state.status === 'fail' ? t.danger('FAIL') : t.muted('PEND');
+  const cursor = selected ? t.accent('>') : ' ';
+  const reason = state.status !== 'pass' ? t.muted(` — ${state.reason}`) : '';
   return `${cursor} ${icon} ${state.namespacedId} [${status}]${reason}`;
 }
 
@@ -74,49 +75,49 @@ function renderRecentTransaction(txn: TransactionRecord): string {
   const last4 = txn.last4 ?? txn.paymentMethod?.last4;
   const card = cardBrand ? `${cardBrand}${last4 ? ` ····${last4}` : ''}` : '';
   const parts = [
-    pc.gray(time),
-    txn.type ? pc.cyan(txn.type) : '',
-    txn.status ? pc.white(txn.status) : '',
-    amount ? pc.yellow(amount) : '',
-    card ? pc.gray(card) : '',
-    txn.responseCode ? pc.gray(`[${txn.responseCode}]`) : ''
+    t.muted(time),
+    txn.type ? t.accent(txn.type) : '',
+    txn.status ? txn.status : '',
+    amount ? t.strong(amount) : '',
+    card ? t.muted(card) : '',
+    txn.responseCode ? t.muted(`[${txn.responseCode}]`) : ''
   ].filter(Boolean);
   return `  ${parts.join('  ')}`;
 }
 
 function renderValueRows(rows: DetailValueRow[]): string[] {
   if (rows.length === 0) {
-    return [pc.gray('  No expected values configured.')];
+    return [t.muted('  No expected values configured.')];
   }
-  return rows.map((row) => `  ${pc.cyan(row.label)}: ${formatValue(row.value)}`);
+  return rows.map((row) => `  ${t.accent(row.label)}: ${formatValue(row.value)}`);
 }
 
 function renderComparisonRow(row: DetailComparisonRow): string {
-  const marker = row.status === 'matched' ? pc.green('✓') : row.status === 'changed' ? pc.red('✗') : pc.yellow('!');
-  return `  ${marker} ${pc.cyan(row.label)}: ${formatValue(row.expected)} ${pc.gray('vs')} ${formatValue(row.actual)}`;
+  const marker = row.status === 'matched' ? statusMark('pass') : row.status === 'changed' ? statusMark('fail') : statusMark('warn');
+  return `  ${marker} ${t.accent(row.label)}: ${formatValue(row.expected)} ${t.muted('vs')} ${formatValue(row.actual)}`;
 }
 
 function renderDetail(detail: CaseDetail): string[] {
   const lines: string[] = [];
-  const status = detail.status === 'pass' ? pc.green('Pass') : detail.status === 'fail' ? pc.red('Failed') : pc.gray('Pending');
-  lines.push(pc.bold(detail.name));
-  lines.push(`${pc.gray('Case:')} ${detail.id}`);
-  lines.push(`${pc.gray('Status:')} ${status}`);
+  const status = detail.status === 'pass' ? t.success('Pass') : detail.status === 'fail' ? t.danger('Failed') : t.muted('Pending');
+  lines.push(t.strong(detail.name));
+  lines.push(`${t.muted('Case:')} ${detail.id}`);
+  lines.push(`${t.muted('Status:')} ${status}`);
   if (detail.reason) {
-    lines.push(`${pc.gray('Reason:')} ${detail.reason}`);
+    lines.push(`${t.muted('Reason:')} ${detail.reason}`);
   }
   if (detail.diagnosisCode) {
-    lines.push(`${pc.gray('Cause:')} ${pc.magenta(detail.diagnosisCode)}`);
+    lines.push(`${t.muted('Cause:')} ${t.accent(detail.diagnosisCode)}`);
   }
   lines.push('');
-  lines.push(pc.bold('Scenario'));
+  lines.push(t.strong('Scenario'));
   lines.push(`  ${detail.scenario}`);
   lines.push('');
 
   // The remedy comes before the evidence: someone watching a red case wants the
   // change to make, not a field table to interpret first.
   if (detail.fixes.length > 0) {
-    lines.push(pc.bold(pc.yellow('To turn this green')));
+    lines.push(t.heading('To make it pass'));
     detail.fixes.forEach((fix, index) => {
       lines.push(`  ${index + 1}. ${fix}`);
     });
@@ -124,22 +125,22 @@ function renderDetail(detail: CaseDetail): string[] {
   }
 
   if (detail.status === 'fail') {
-    lines.push(pc.bold('What we expected'));
+    lines.push(t.strong('What we expected'));
     lines.push(...renderValueRows(detail.expectedValues));
     lines.push('');
-    lines.push(pc.bold('What you sent'));
+    lines.push(t.strong('What you sent'));
     if (detail.sentValues.length === 0) {
-      lines.push(pc.gray('  No submitted payload was captured for this test.'));
+      lines.push(t.muted('  No submitted payload was captured for this test.'));
     } else {
-      lines.push(...detail.sentValues.map((row) => `  ${pc.cyan(row.label)}: ${formatValue(row.value)}`));
+      lines.push(...detail.sentValues.map((row) => `  ${t.accent(row.label)}: ${formatValue(row.value)}`));
     }
     if (detail.comparisons.length > 0) {
       lines.push('');
-      lines.push(pc.bold('Comparison'));
+      lines.push(t.strong('Comparison'));
       lines.push(...detail.comparisons.map(renderComparisonRow));
     }
   } else {
-    lines.push(pc.bold('Expected values'));
+    lines.push(t.strong('Expected values'));
     lines.push(...renderValueRows(detail.expectedValues));
   }
 
@@ -150,7 +151,7 @@ function summaryLine(cases: CaseRunState[]): string {
   const passCount = cases.filter((c) => c.status === 'pass').length;
   const failCount = cases.filter((c) => c.status === 'fail').length;
   const pendCount = cases.filter((c) => c.status === 'pending').length;
-  return `Summary: ${pc.green(`${passCount} pass`)}, ${pc.red(`${failCount} fail`)}, ${pc.gray(`${pendCount} pending`)}`;
+  return `Summary: ${t.success(`${passCount} pass`)}, ${t.danger(`${failCount} fail`)}, ${t.muted(`${pendCount} pending`)}`;
 }
 
 function detailFor(input: WatchFrameInput, selected: CaseRunState | undefined): CaseDetail | undefined {
@@ -168,20 +169,26 @@ function clipLines(lines: string[], maxLines: number, offset = 0): string[] {
   return lines.slice(offset, offset + maxLines);
 }
 
+/** "N transaction(s) fetched", with the `/actions` count added when that feed was read. */
+function fetchedSummary(input: WatchFrameInput): string {
+  const actions = input.actionsFetched ? `, ${input.actionsFetched} action(s)` : '';
+  return `${input.transactionsFetched ?? 0} transaction(s)${actions} fetched`;
+}
+
 function renderListPane(input: WatchFrameInput, width: number, height?: number): string[] {
   const selectedIndex = input.selectedIndex ?? 0;
   const lines: string[] = [];
-  lines.push(pc.bold('Expected tests'));
+  lines.push(t.strong('Expected tests'));
   if (input.cycleNumber !== undefined && input.transactionsFetched !== undefined) {
-    lines.push(pc.gray(`Cycle ${input.cycleNumber} · ${input.transactionsFetched} transaction(s) fetched`));
+    lines.push(t.muted(`Cycle ${input.cycleNumber} · ${fetchedSummary(input)}`));
   }
-  lines.push(pc.gray('─'.repeat(Math.max(0, width))));
+  lines.push(t.muted('─'.repeat(Math.max(0, width))));
   for (const [index, state] of input.cases.entries()) {
     lines.push(renderCaseLine(state, index === selectedIndex));
   }
   lines.push('');
   lines.push(summaryLine(input.cases));
-  lines.push(pc.gray('↑/↓ move • enter/i details • q quit'));
+  lines.push(t.muted('↑/↓ move • enter/i details • q quit'));
 
   const maxLines = height ?? lines.length;
   return clipLines(lines, maxLines);
@@ -190,9 +197,9 @@ function renderListPane(input: WatchFrameInput, width: number, height?: number):
 function renderDetailPane(input: WatchFrameInput, width: number, height?: number): string[] {
   const selected = input.cases[input.selectedIndex ?? 0];
   const detail = detailFor(input, selected);
-  const lines = [pc.bold('Details'), pc.gray('─'.repeat(Math.max(0, width)))];
+  const lines = [t.strong('Details'), t.muted('─'.repeat(Math.max(0, width)))];
   if (!detail) {
-    lines.push(pc.gray('Select a test to view details.'));
+    lines.push(t.muted('Select a test to view details.'));
   } else {
     lines.push(...renderDetail(detail));
   }
@@ -205,7 +212,7 @@ function renderDetailPane(input: WatchFrameInput, width: number, height?: number
   const clippedBody = clipLines(body, visibleBodyLines, offset);
   const output = [lines[0]!, lines[1]!, ...clippedBody];
   if (offset + clippedBody.length < body.length && output.length > 0) {
-    output[output.length - 1] = pc.gray('↓ more');
+    output[output.length - 1] = t.muted('↓ more');
   }
   return output;
 }
@@ -213,9 +220,9 @@ function renderDetailPane(input: WatchFrameInput, width: number, height?: number
 export function renderClassicWatchFrame(input: WatchFrameInput): string {
   const lines: string[] = [];
   if (input.cycleNumber !== undefined && input.transactionsFetched !== undefined) {
-    lines.push(`${pc.gray(`[Cycle ${input.cycleNumber}]`)} ${input.transactionsFetched} transaction(s) fetched`);
-    if (input.transactionsFetched === 0) {
-      lines.push(pc.yellow('  No transactions found in this polling window.'));
+    lines.push(`${t.muted(`[Cycle ${input.cycleNumber}]`)} ${fetchedSummary(input)}`);
+    if (input.transactionsFetched === 0 && !input.actionsFetched) {
+      lines.push(t.warning('  No transactions or actions found in this polling window.'));
     }
     lines.push('');
   }
@@ -228,7 +235,7 @@ export function renderClassicWatchFrame(input: WatchFrameInput): string {
 
   if (input.recentTransactions && input.recentTransactions.length > 0) {
     lines.push('');
-    lines.push(pc.gray('Recent transactions:'));
+    lines.push(t.muted('Recent transactions:'));
     for (const txn of input.recentTransactions) {
       lines.push(renderRecentTransaction(txn));
     }
@@ -244,7 +251,7 @@ export function renderInteractiveWatchFrame(input: WatchFrameInput): string {
 
   if (!wide && input.detailOpen) {
     const detailLines = renderDetailPane(input, columns, rows - 1).map((line) => truncate(line, columns));
-    return `${detailLines.join('\n')}\n${pc.gray('esc/q back • ↑/↓ scroll')}`;
+    return `${detailLines.join('\n')}\n${t.muted('esc/q back • ↑/↓ scroll')}`;
   }
 
   if (!wide) {

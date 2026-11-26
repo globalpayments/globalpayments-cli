@@ -56,6 +56,17 @@ src/
 │   ├── client.ts             # HTTP client
 │   ├── transactions.ts       # Transaction polling
 │   └── adapters.ts           # Response parsing
+├── ui/                         # How text output looks
+│   ├── index.ts               # Theme roles (t.success, t.command...), symbols, settings
+│   ├── capabilities.ts        # Colour level, Unicode, width, interactivity
+│   ├── theme.ts               # Brand palette and the gp, gp-light, classic, mono themes
+│   ├── help.ts                # Grouped --help, summaries and examples
+│   ├── brand.ts, wordmark.ts  # The wordmark banner and environment badges
+│   └── spinner.ts, layout.ts, text.ts
+├── shell/                      # The interactive shell
+│   ├── shell.ts               # Session loop, slash built-ins, running commands
+│   ├── editor.ts              # Raw-mode line editor with the live palette
+│   └── catalog.ts             # Completion for the palette, Tab and shell scripts
 ├── types/
 │   └── domain.ts             # TypeScript interfaces
 └── util/
@@ -93,6 +104,7 @@ examples/                      # Sample config and packs
 - **Minimal comments** — Code should be self-documenting; comment only non-obvious logic
 - **Clean imports** — Avoid circular dependencies; use absolute imports from `src/`
 - **Tests required** — All new functionality must have corresponding unit tests
+- **Styling goes through `src/ui`**: use the theme roles (`t.success`, `t.danger`, `t.command`, `t.muted`...), `statusMark()` and `sym()` for all colour and symbols, with no raw escape codes or colour library, and put any new command in a help group in `src/ui/help.ts` with a summary and an example. That keeps themes, `NO_COLOR`, ASCII mode, the shell palette and completion working, and the tests fail if a command is left out.
 
 #### Writing Tests
 ```typescript

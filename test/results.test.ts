@@ -38,4 +38,24 @@ describe('results', () => {
     expect(JSON.parse(historyRaw)).toEqual(result);
     expect(paths.historyPath).toContain(path.join('history', `${result.timestamp}.json`));
   });
+
+  it('writes history for a real ISO timestamp, whose colons Windows forbids', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'globalpayments-results-'));
+    const result = {
+      schemaVersion: 1,
+      timestamp: '2026-10-28T14:08:32.932Z',
+      environment: 'sandbox',
+      activePacks: [],
+      verdict: 'passed',
+      summary: { pass: 0, fail: 0, pending: 0, total: 0 },
+      required: { total: 0, passing: 0, failing: 0 },
+      cases: [],
+      redactedConfig: {}
+    } as RunResult;
+
+    const paths = await persistRunResult(result, rootDir);
+
+    expect(path.basename(paths.historyPath)).toBe('2026-10-28T14-08-32.932Z.json');
+    expect(JSON.parse(await readFile(paths.historyPath, 'utf8'))).toEqual(result);
+  });
 });

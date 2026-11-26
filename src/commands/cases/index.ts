@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { t } from '../../ui/index.js';
+import { hang } from '../../ui/text.js';
 import { runCommand } from '../../contract/emit.js';
 import { GlobalPaymentsError, ERROR_CODES } from '../../contract/errors.js';
 import { resolveSelection } from '../../core/session.js';
@@ -14,6 +15,8 @@ export interface CaseSummary {
   required: boolean;
   mode: string;
   observability: string;
+  /** Feed the case is judged against: `transactions` or `actions`. */
+  source: string;
   tags: string[];
   scenario?: string;
   formQuestion?: number;
@@ -47,6 +50,7 @@ function summarize(packId: string, caze: CertificationCase): CaseSummary {
     required: caze.required,
     mode: caze.mode ?? 'latest',
     observability: caze.observability ?? 'polling',
+    source: caze.source ?? 'transactions',
     tags: caze.tags ?? [],
     ...(caze.scenario ? { scenario: caze.scenario } : {}),
     ...(caze.formQuestion !== undefined ? { formQuestion: caze.formQuestion } : {})
@@ -56,42 +60,43 @@ function summarize(packId: string, caze: CertificationCase): CaseSummary {
 function renderList(data: CasesListData): void {
   for (const pack of data.packs) {
     console.log();
-    console.log(pc.bold(pc.blue(pack.name)), pc.gray(`(${pack.packId} v${pack.version})`));
-    console.log(pc.gray(`  ${pack.caseCount} case(s), ${pack.requiredCount} required`));
+    console.log(t.heading(pack.name), t.muted(`(${pack.packId} v${pack.version})`));
+    console.log(t.muted(`  ${pack.caseCount} case(s), ${pack.requiredCount} required`));
     console.log();
     for (const caze of data.cases.filter((c) => c.packId === pack.packId)) {
-      const flag = caze.required ? pc.yellow('REQUIRED') : pc.gray('optional');
-      const tags = caze.tags.length > 0 ? ' ' + caze.tags.map((t) => pc.gray(`[${t}]`)).join(' ') : '';
-      console.log(`  ${pc.cyan(caze.address)} — ${caze.name} (${flag})${tags}`);
+      const flag = caze.required ? t.warning('REQUIRED') : t.muted('optional');
+      const tags = caze.tags.length > 0 ? ' ' + caze.tags.map((tag) => t.muted(`[${tag}]`)).join(' ') : '';
+      console.log(`  ${hang(`${t.accent(caze.address)} — ${caze.name} (${flag})${tags}`, 4)}`);
     }
   }
   console.log();
   console.log(
-    pc.gray(
+    t.muted(
       `Total: ${data.totals.cases} case(s) across ${data.packs.length} pack(s); ${data.totals.required} required.`
     )
   );
 }
 
 function renderDetail(data: CaseDetail): void {
-  console.log(pc.bold('Address:'), pc.cyan(data.address));
-  console.log(pc.bold('Name:'), data.name);
-  console.log(pc.bold('Required:'), data.required ? pc.yellow('yes') : 'no');
-  console.log(pc.bold('Mode:'), data.mode);
-  console.log(pc.bold('Observability:'), data.observability);
-  if (data.tags.length > 0) console.log(pc.bold('Tags:'), data.tags.join(', '));
-  if (data.scenario) console.log(pc.bold('Scenario:'), data.scenario);
+  console.log(t.strong('Address:'), t.accent(data.address));
+  console.log(t.strong('Name:'), data.name);
+  console.log(t.strong('Required:'), data.required ? t.warning('yes') : 'no');
+  console.log(t.strong('Mode:'), data.mode);
+  console.log(t.strong('Observability:'), data.observability);
+  console.log(t.strong('Source:'), data.source === 'actions' ? 'GET /actions (API request log)' : 'GET /transactions');
+  if (data.tags.length > 0) console.log(t.strong('Tags:'), data.tags.join(', '));
+  if (data.scenario) console.log(t.strong('Scenario:'), data.scenario);
   console.log();
-  console.log(pc.bold('Matcher'), pc.gray('(selects which transactions this case judges)'));
+  console.log(t.strong('Matcher'), t.muted(`(selects which ${data.source === 'actions' ? 'actions' : 'transactions'} this case judges)`));
   for (const [key, value] of Object.entries(data.matcher)) {
     console.log(`  ${key}: ${JSON.stringify(value)}`);
   }
   console.log();
-  console.log(pc.bold('Expect'), pc.gray('(what the matched transaction must satisfy)'));
+  console.log(t.strong('Expect'), t.muted('(what the matched transaction must satisfy)'));
   console.log(`  ${JSON.stringify(data.expect, null, 2).split('\n').join('\n  ')}`);
   if (data.evaluator) {
     console.log();
-    console.log(pc.bold('Evaluator:'), JSON.stringify(data.evaluator));
+    console.log(t.strong('Evaluator:'), JSON.stringify(data.evaluator));
   }
 }
 

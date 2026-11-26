@@ -1,4 +1,5 @@
-import pc from 'picocolors';
+import { statusMark, t } from '../ui/index.js';
+import { hang, inlineCode } from '../ui/text.js';
 import type { CaseDiagnosis, FieldDelta, Fix, NearMiss } from '../types/domain.js';
 
 /**
@@ -88,33 +89,33 @@ function formatValue(value: unknown): string {
 }
 
 function statusIcon(status: string): string {
-  if (status === 'pass') return pc.green('✓');
-  if (status === 'fail') return pc.red('✗');
-  return pc.gray('○');
+  if (status === 'pass') return statusMark('pass');
+  if (status === 'fail') return statusMark('fail');
+  return statusMark('pending');
 }
 
 function renderNearMiss(near: NearMiss, log: (...args: unknown[]) => void): void {
   const label = near.reference ? `${near.transactionId} (ref "${near.reference}")` : near.transactionId;
   log(
-    `    ${pc.bold('closest observed:')} ${pc.cyan(label)} ` +
-      pc.gray(`— ${near.fieldsMatched}/${near.fieldsCompared} matcher fields, ${Math.round(near.score * 100)}%`)
+    `    ${t.strong('closest observed:')} ${t.accent(label)} ` +
+      t.muted(`— ${near.fieldsMatched}/${near.fieldsCompared} matcher fields, ${Math.round(near.score * 100)}%`)
   );
 
   for (const field of near.matchedFields) {
-    log(`      ${pc.green('✓')} ${field}`);
+    log(`      ${statusMark('pass')} ${field}`);
   }
   for (const delta of near.mismatchedFields) {
     const verb = delta.comparison === 'startsWith' ? 'starts with' : '';
     log(
-      `      ${pc.red('✗')} ${delta.field}  ${pc.gray(`expected${verb ? ` ${verb}` : ''}`)} ${pc.yellow(formatValue(delta.expected))}  ` +
-        `${pc.gray('observed')} ${pc.red(formatValue(delta.actual))}`
+      `      ${statusMark('fail')} ${delta.field}  ${t.muted(`expected${verb ? ` ${verb}` : ''}`)} ${t.accent(formatValue(delta.expected))}  ` +
+        `${t.muted('observed')} ${t.danger(formatValue(delta.actual))}`
     );
   }
   for (const delta of near.advisoryFields) {
     const verb = delta.comparison === 'startsWith' ? 'starts with' : '';
     log(
-      `      ${pc.yellow('!')} ${delta.field}  ${pc.gray(`expected${verb ? ` ${verb}` : ''}`)} ${pc.yellow(formatValue(delta.expected))}  ` +
-        `${pc.gray('observed')} ${formatValue(delta.actual)} ${pc.gray('(advisory — reference does not gate matching)')}`
+      `      ${statusMark('warn')} ${delta.field}  ${t.muted(`expected${verb ? ` ${verb}` : ''}`)} ${t.accent(formatValue(delta.expected))}  ` +
+        `${t.muted('observed')} ${formatValue(delta.actual)} ${t.muted('(advisory — reference does not gate matching)')}`
     );
   }
 }
@@ -123,12 +124,12 @@ function renderExpectationDeltas(deltas: FieldDelta[], log: (...args: unknown[])
   if (deltas.length === 0) {
     return;
   }
-  log(`    ${pc.bold('expectation:')}`);
+  log(`    ${t.strong('expectation:')}`);
   for (const delta of deltas) {
-    const icon = delta.satisfied ? pc.green('✓') : pc.red('✗');
+    const icon = delta.satisfied ? statusMark('pass') : statusMark('fail');
     log(
-      `      ${icon} ${delta.field}  ${pc.gray('expected one of')} ${pc.yellow(formatValue(delta.expected))}  ` +
-        `${pc.gray('observed')} ${delta.satisfied ? pc.green(formatValue(delta.actual)) : pc.red(formatValue(delta.actual))}`
+      `      ${icon} ${delta.field}  ${t.muted('expected one of')} ${t.accent(formatValue(delta.expected))}  ` +
+        `${t.muted('observed')} ${delta.satisfied ? t.success(formatValue(delta.actual)) : t.danger(formatValue(delta.actual))}`
     );
   }
 }
@@ -138,10 +139,10 @@ export function renderDiagnosedCase(view: DiagnosedCaseView, log: (...args: unkn
   const { diagnosis } = view;
 
   log();
-  log(`${statusIcon(view.status)} ${pc.cyan(view.address)}  ${pc.bold(pc.magenta(diagnosis.code))}`);
+  log(`${statusIcon(view.status)} ${t.accent(view.address)}  ${t.strong(t.accent(diagnosis.code))}`);
   log(`    ${diagnosis.summary}`);
   log(
-    pc.gray(
+    t.muted(
       `    observed ${diagnosis.observed.transactionsInWindow} transaction(s) in window, ${diagnosis.observed.candidatesMatched} matched this case`
     )
   );
@@ -159,20 +160,20 @@ export function renderDiagnosedCase(view: DiagnosedCaseView, log: (...args: unkn
 
   if (diagnosis.fixes.length > 0) {
     log();
-    log(`    ${pc.bold(pc.yellow('to turn this green:'))}`);
+    log(`    ${t.heading('to make it pass:')}`);
     diagnosis.fixes.forEach((fix, index) => {
-      log(`      ${index + 1}. ${pc.gray(`[${fix.confidence}]`)} ${fix.instruction}`);
+      log(`      ${index + 1}. ${t.muted(`[${fix.confidence}]`)} ${hang(inlineCode(fix.instruction), 9)}`);
     });
   }
 
   const { send, mustResultIn, notes } = diagnosis.requiredRequest;
   log();
-  log(`    ${pc.bold('required request:')} ${JSON.stringify(send)}`);
+  log(`    ${t.strong('required request:')} ${JSON.stringify(send)}`);
   if (Object.keys(mustResultIn).length > 0) {
-    log(`    ${pc.bold('must result in:')}   ${JSON.stringify(mustResultIn)}`);
+    log(`    ${t.strong('must result in:')}   ${JSON.stringify(mustResultIn)}`);
   }
   for (const note of notes) {
-    log(pc.gray(`    note: ${note}`));
+    log(t.muted(`    note: ${note}`));
   }
 }
 
@@ -191,18 +192,18 @@ export interface DiagnoseView {
 }
 
 export function renderDiagnose(view: DiagnoseView, log: (...args: unknown[]) => void): void {
-  log(pc.bold('Why these cases are not passing'));
-  log(`  Source:      ${pc.cyan(view.sourcePath)}`);
-  log(`  Timestamp:   ${pc.cyan(view.timestamp)}`);
-  log(`  Environment: ${pc.blue(view.environment)}`);
+  log(t.strong('Why these cases are not passing'));
+  log(`  Source:      ${t.accent(view.sourcePath)}`);
+  log(`  Timestamp:   ${t.accent(view.timestamp)}`);
+  log(`  Environment: ${t.accent(view.environment)}`);
   log(
-    `  Verdict:     ${view.verdict === 'passed' ? pc.green('PASSED') : pc.red('FAILED')} ` +
-      pc.gray(`(${view.totals.passing}/${view.totals.cases} case(s) passing, ${view.totals.diagnosed} diagnosed)`)
+    `  Verdict:     ${view.verdict === 'passed' ? t.success('PASSED') : t.danger('FAILED')} ` +
+      t.muted(`(${view.totals.passing}/${view.totals.cases} case(s) passing, ${view.totals.diagnosed} diagnosed)`)
   );
 
   if (view.cases.length === 0) {
     log();
-    log(pc.green('Nothing to diagnose — every case in this result is passing.'));
+    log(t.success('Nothing to diagnose — every case in this result is passing.'));
     return;
   }
 
@@ -212,10 +213,10 @@ export function renderDiagnose(view: DiagnoseView, log: (...args: unknown[]) => 
 
   if (view.fixPlan.length > 0) {
     log();
-    log(pc.bold('Fix plan'), pc.gray('(ordered; most specific first)'));
+    log(t.strong('Fix plan'), t.muted('(ordered; most specific first)'));
     for (const entry of view.fixPlan) {
-      log(`  ${String(entry.rank).padStart(2)}. ${pc.cyan(entry.address)} ${pc.gray(`[${entry.action}]`)}`);
-      log(`      ${entry.instruction}`);
+      log(`  ${String(entry.rank).padStart(2)}. ${t.accent(entry.address)} ${t.muted(`[${entry.action}]`)}`);
+      log(`      ${hang(inlineCode(entry.instruction), 6)}`);
     }
   }
   log();

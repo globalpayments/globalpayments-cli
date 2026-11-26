@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { statusMark, t } from '../ui/index.js';
+import { hang, humanCommand, inlineCode } from '../ui/text.js';
 import { readFile } from 'node:fs/promises';
 import { runCommand } from '../contract/emit.js';
 import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
@@ -13,20 +14,20 @@ export interface ReportData extends RunResult {
 }
 
 function renderReport(data: ReportData): void {
-  console.log(pc.bold('Global Payments certification report'));
+  console.log(t.strong('Global Payments certification report'));
   console.log();
-  console.log('  Source:      ', pc.cyan(data.sourcePath));
-  console.log('  Timestamp:   ', pc.cyan(data.timestamp));
-  console.log('  Environment: ', pc.blue(data.environment));
-  console.log('  Packs:       ', pc.cyan(data.activePacks.join(', ')));
+  console.log('  Source:      ', t.accent(data.sourcePath));
+  console.log('  Timestamp:   ', t.accent(data.timestamp));
+  console.log('  Environment: ', t.accent(data.environment));
+  console.log('  Packs:       ', t.accent(data.activePacks.join(', ')));
   console.log(
     '  Verdict:     ',
-    data.verdict === 'passed' ? pc.green('PASSED') : pc.red('FAILED'),
-    pc.gray(`(${data.required.passing}/${data.required.total} required passing)`)
+    data.verdict === 'passed' ? t.success('PASSED') : t.danger('FAILED'),
+    t.muted(`(${data.required.passing}/${data.required.total} required passing)`)
   );
   console.log(
     '  Cases:       ',
-    `${pc.green(`${data.summary.pass} pass`)}, ${pc.red(`${data.summary.fail} fail`)}, ${pc.gray(`${data.summary.pending} pending`)} of ${data.summary.total}`
+    `${t.success(`${data.summary.pass} pass`)}, ${t.danger(`${data.summary.fail} fail`)}, ${t.muted(`${data.summary.pending} pending`)} of ${data.summary.total}`
   );
 
   const byPack = new Map<string, ReportData['cases']>();
@@ -38,23 +39,23 @@ function renderReport(data: ReportData): void {
 
   for (const [packId, cases] of byPack) {
     console.log();
-    console.log(pc.blue(`${packId}:`));
+    console.log(t.accent(`${packId}:`));
     for (const caze of cases) {
-      const icon = caze.status === 'pass' ? pc.green('✓') : caze.status === 'fail' ? pc.red('✗') : pc.gray('○');
-      console.log(`  ${icon} ${pc.cyan(caze.namespacedCaseId)} — ${caze.reason}`);
+      const icon = caze.status === 'pass' ? statusMark('pass') : caze.status === 'fail' ? statusMark('fail') : statusMark('pending');
+      console.log(`  ${icon} ${t.accent(caze.namespacedCaseId)} — ${caze.reason}`);
       if (caze.latestMatch) {
-        console.log(pc.gray(`      matched ${caze.latestMatch.reference ?? caze.latestMatch.id}`));
+        console.log(t.muted(`      matched ${caze.latestMatch.reference ?? caze.latestMatch.id}`));
       }
       const topFix = caze.diagnosis?.fixes[0];
       if (topFix) {
-        console.log(`      ${pc.yellow('fix:')} ${topFix.instruction}`);
+        console.log(`      ${t.warning('fix:')} ${hang(inlineCode(topFix.instruction), 11)}`);
       }
     }
   }
 
   if (data.cases.some((caze) => caze.diagnosis !== undefined)) {
     console.log();
-    console.log(pc.gray('Field-level causes and the full fix plan: ') + pc.yellow('globalpayments diagnose'));
+    console.log(t.muted('Field-level causes and the full fix plan: ') + t.command(humanCommand('globalpayments diagnose')));
   }
   console.log();
 }

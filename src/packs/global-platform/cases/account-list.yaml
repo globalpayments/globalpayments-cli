@@ -1,0 +1,21 @@
+id: account-list
+name: "List the merchant's accounts — GET /accounts"
+scenario: "Call GET /accounts."
+required: true
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+matcher:
+  type: ACCOUNT_LIST
+  resource: ACCOUNTS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

@@ -4,9 +4,22 @@ const SECRET_KEYS = new Set([
   'secret',
   'appkey',
   'app_key',
+  'app_secret',
   'token',
   'access_token',
-  'authorization'
+  'authorization',
+  'password',
+  'cvv',
+  'cvc',
+  'security_code',
+  'card_number',
+  'cardnumber',
+  'pan',
+  'track_data',
+  'trackdata',
+  'account_number',
+  'accountnumber',
+  'iban'
 ]);
 
 function shouldRedactKey(key: string): boolean {

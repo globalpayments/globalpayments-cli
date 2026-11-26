@@ -8,10 +8,16 @@ Humans: see [README.md](README.md). This file is the contract, stated once.
 
 ## 1. What this tool is
 
-`globalpayments` is an **observer**. It never creates transactions.
+`globalpayments` is a developer CLI with a read-only certification observer plus
+sandbox API and local testing tools. `run` and `watch` poll transactions *you have
+already sent*, match them against certification cases, and report whether each case is
+satisfied. Cases with `source: actions` are judged against `GET /actions`, the log of
+every API request.
 
-It polls the Global Payments API for transactions *you have already sent*, matches
-them against certification cases, and reports whether each case is satisfied.
+The separate `api post` command can send authenticated API writes, but it refuses to
+send unless the resolved environment is `sandbox`. `listen` and `trigger` exercise
+local webhook handlers with synthetic signed events; they do not create real
+transactions or register a GP webhook.
 
 The single most common misdiagnosis is treating a `pending` case as a bug. It is not.
 `pending` means *no matching transaction was observed*. The fix is almost always to
@@ -77,6 +83,21 @@ into a parser.
 
 **Branch on `error.code` or the exit code. Never parse `error.message`.**
 
+### People get a shell, agents never do
+
+`globalpayments` with no arguments opens an interactive shell, but only when stdin and
+stdout are both a terminal and `CI` is unset. Anywhere else it prints help and exits 0,
+so it can never hang an automated caller waiting for input. `globalpayments shell --json`
+returns the shell's command list without starting it, and piped stdin runs one command
+per line. Agents should keep calling commands directly with `--json`.
+
+Terminal settings (`globalpayments ui ...`, `GP_CLI_THEME`, `GP_CLI_BANNER`, `GP_CLI_ICONS`,
+`GP_CLI_MOTION`, `GP_CLI_HINTS`, `NO_COLOR`, `FORCE_COLOR`, `--no-color`, `--color`) only
+change how text output looks. They never change a `--json` envelope, and text written to a
+pipe never contains escape codes. `--no-color` and `--color` are accepted anywhere on the
+line. `globalpayments __complete` is internal plumbing for shell completion and is left
+out of `explain`.
+
 ---
 
 ## 4. Exit codes
@@ -91,6 +112,9 @@ into a parser.
 | 5 | `NETWORK` | GP API unreachable. | **Yes** |
 | 6 | `NOT_FOUND` | Unknown pack, case, or result artifact. | No |
 | 7 | `INTERNAL` | Bug in `globalpayments`. | No — report it |
+| 8 | `API_REJECTED` | GP rejected the API request. | No — correct the request |
+| 9 | `WEBHOOK_DELIVERY` | Local webhook delivery failed. | After fixing the handler |
+| 10 | `SETUP_FAILED` | Local AI-agent/MCP setup failed. | After fixing the reported setup issue |
 
 Exit `1` is the one to think carefully about: the tool worked perfectly and is telling
 you the merchant is not yet certified. Do not treat it as a failure of the tool.
@@ -137,6 +161,41 @@ globalpayments run --cert <packId> --json          # 5. evaluate
 Do not skip step 2. `doctor` isolates config, credential, and network failures into
 separate checks, each with its own code and remediation. Debugging those from a failed
 `run` is strictly harder.
+
+### Sandbox API development
+
+```bash
+globalpayments sandbox create                         # save existing portal app credentials to .env
+globalpayments doctor --json                           # verify credentials and connectivity
+globalpayments api get /transactions --json            # read a GP resource
+globalpayments api post /transactions --data <json>    # POST only when GP_API_ENVIRONMENT=sandbox
+globalpayments transactions get <transactionId> --json # inspect one transaction
+globalpayments transactions testpay --status-url <https-url> --return-url <https-url> # sandbox TestPay
+globalpayments logs tail --status 4xx                  # follow rejected API calls
+```
+
+`sandbox create` configures an existing Developer Portal app; it does not provision an
+account or app. The app key is entered hidden and stored locally in `.env`. Never put
+production credentials in a workspace used for sandbox API writes.
+`sandbox create` adds an ignore rule for the selected env file when it is inside the
+project; verify the file was not already tracked.
+
+### Local webhook and agent setup
+
+```bash
+globalpayments listen --forward-to http://localhost:3000/webhooks
+globalpayments trigger transaction.captured
+globalpayments agent setup --editor vscode
+```
+
+The listener binds to loopback and accepts only localhost forwarding targets.
+`trigger` sends a synthetic signed event, not a real GP notification. Agent setup
+installs the sandbox-restricted MCP server and Global Payments SDK skills; it requires
+Git, npm, network access, and Node.js 22.20 or newer. The local MCP checkout is ignored
+in `.gitignore`.
+`transactions testpay` initiates a sandbox TestPay transaction; real status delivery
+requires an approved public HTTPS endpoint. `listen --verify-signature` checks forwarded
+POST signatures but does not make the listener public or prove GP delivered an event.
 
 ### Diagnosing a non-passing case
 
@@ -203,9 +262,9 @@ entirely and `globalpayments` builds its configuration from environment variable
 |---|---|---|---|
 | `GP_API_APP_ID` | yes | — | GP API application id |
 | `GP_API_APP_KEY` | yes | — | GP API application key. Redacted from all output and artifacts. |
-| `GP_ENVIRONMENT` | no | `sandbox` | `sandbox` or `production` |
+| `GP_API_ENVIRONMENT` | no | `sandbox` | `sandbox` or `production` |
 | `GP_API_VERSION` | no | `2021-03-22` | GP API version header |
-| `GP_ACCOUNT_NAME` | no | — | Restrict polling and matching to one account |
+| `GP_API_ACCOUNT_NAME` | no | — | Restrict polling and matching to one account |
 
 Passing `--config <path>` makes the path **explicit**, so a missing file becomes a hard
 `E_CONFIG_READ` failure rather than falling back to environment variables. That is
@@ -246,6 +305,9 @@ src/core/diagnosis.ts  LAYER 3 — pure: why a case is red and what to change. N
                                  no clock. The ONLY place a diagnosis is built.
 src/core/session.ts    LAYER 3 — one bootstrap: env → config → packs → auth →
                                  client → engine, plus result collection.
+src/core/api-session.ts       Shared auth/config bootstrap for direct API commands.
+src/gpapi/request.ts          Authenticated GET/POST transport and API-path boundary.
+src/io/local-webhook.ts       Loopback-only synthetic webhook listener/forwarder.
 
 src/commands/*         LAYER 4 — thin adapters: parse options, call core, return an
                                  outcome. No try/catch. No stdout writes.
@@ -307,11 +369,12 @@ or a real description — that is intentional.
 
 ```bash
 npm run verify    # typecheck + tests + build + build-level smoke. Use this.
-npm test          # vitest, 201 tests
+npm test          # vitest
 npm run typecheck # tsc --noEmit, strict
 npm run build     # tsup → dist/, copies src/packs → dist/packs
 npm run smoke     # contract checks against dist/bin.js (needs a build; no network)
 npm run dev -- <args>   # run from source, e.g. npm run dev -- explain --json
+npm run verify:actions  # SANDBOX ONLY: confirm actions-case action types (--apply to update cases)
 ```
 
 **Finish every change with `npm run verify`.**
@@ -360,3 +423,23 @@ next build.
   throws when an `error` event has no listener, so the reserved name turned a swallowed
   403 into an `E_INTERNAL` crash and made `OBSERVATION_FAILED` unreachable. Do not
   rename it back.
+- Actions cases reuse the transaction pipeline: `adaptGpActionObservation` projects an
+  action onto `ObservedTxn` (`type` = action type, `status` = resource status,
+  `responseCode` = HTTP status). Add actions-only matcher fields to `matching.ts` *and*
+  `buildMatcherChecks` together, or rule 4 breaks.
+- Each feed fails independently. An `/actions` outage marks only actions cases
+  `OBSERVATION_FAILED`; `pollFailed` is true only when every feed the run needs failed.
+- `fetchActionsPage` (diagnostic enrichment) swallows errors by design;
+  `fetchRecentActionsPaginated` (primary evidence) must throw. Do not merge them.
+- The observer's own `CREATE_TOKEN`, `TRANSACTION_LIST`, and `ACTION_LIST` actions are
+  filtered by `app_id`. If the integration shares the observer's credentials, cases on
+  those three action types can never pass.
+- Some endpoints share an action type (`GET /transactions` and
+  `GET /settlement/transactions` both log `TRANSACTION_LIST`). Such cases are
+  `observability: partial`; do not pretend they are distinguishable.
+- `/actions` filters by day (`from_time_created` is a date). The exact window is
+  re-applied client-side. New actions can take several seconds to appear.
+- GP returns some action timestamps without a zone (`GET_CHALLENGE_RESULT` sends
+  `2026-11-03T14:31:44.912`, no `Z`). They are UTC. `adaptGpActionObservation`
+  normalizes `timeCreated` to UTC ISO; never `Date.parse` a raw GP timestamp, or the
+  machine's UTC offset shifts it out of the window.

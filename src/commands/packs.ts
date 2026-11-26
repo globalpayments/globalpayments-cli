@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { t } from '../ui/index.js';
 import { runCommand } from '../contract/emit.js';
 import { GlobalPaymentsError, ERROR_CODES } from '../contract/errors.js';
 import { listBuiltinPackIds, resolveBuiltinPacksDir } from '../core/builtin-packs.js';
@@ -34,12 +34,12 @@ export interface PackDetailData extends PackSummary {
 }
 
 function renderList(data: PacksListData): void {
-  console.log(pc.bold('Available certification packs'));
+  console.log(t.strong('Available certification packs'));
   console.log();
   for (const pack of data.packs) {
-    console.log(`  ${pc.cyan(pack.packId)} ${pc.gray(`v${pack.version}`)} — ${pack.name}`);
+    console.log(`  ${t.accent(pack.packId)} ${t.muted(`v${pack.version}`)} — ${pack.name}`);
     console.log(
-      pc.gray(
+      t.muted(
         `      ${pack.caseCount} case(s), ${pack.requiredCount} required` +
           `${pack.region ? ` · region=${pack.region}` : ''}` +
           `${pack.channel ? ` · channel=${pack.channel}` : ''}` +
@@ -48,16 +48,16 @@ function renderList(data: PacksListData): void {
     );
   }
   console.log();
-  console.log(pc.gray(`Bundled from ${data.bundledPacksDirectory}`));
+  console.log(t.muted(`Bundled from ${data.bundledPacksDirectory}`));
 }
 
 function renderDetail(data: PackDetailData): void {
-  console.log(pc.bold(data.name), pc.gray(`(${data.packId} v${data.version})`));
-  console.log(pc.gray(`  ${data.caseCount} case(s), ${data.requiredCount} required`));
+  console.log(t.strong(data.name), t.muted(`(${data.packId} v${data.version})`));
+  console.log(t.muted(`  ${data.caseCount} case(s), ${data.requiredCount} required`));
   console.log();
   for (const caze of data.cases) {
-    const flag = caze.required ? pc.yellow('REQUIRED') : pc.gray('optional');
-    console.log(`  ${pc.cyan(caze.address)} — ${caze.name} (${flag})`);
+    const flag = caze.required ? t.warning('REQUIRED') : t.muted('optional');
+    console.log(`  ${t.accent(caze.address)} — ${caze.name} (${flag})`);
   }
 }
 

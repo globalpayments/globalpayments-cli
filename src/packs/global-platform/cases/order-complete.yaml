@@ -1,0 +1,20 @@
+id: order-complete
+name: "Complete an order — POST /merchants/{id}/orders/{ORD_id}/initiation"
+scenario: "Call POST /merchants/{id}/orders/{ORD_id}/initiation."
+required: false
+source: actions
+observability: polling
+tags:
+  - platform
+  - action-type-inferred
+mode: latest
+# Action type inferred from GP naming conventions and not yet observed. If this case stays pending with MATCHER_MISMATCH, `globalpayments diagnose` shows the action type GP actually logged; update matcher.type to it.
+matcher:
+  type: ORDER_INITIATE
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

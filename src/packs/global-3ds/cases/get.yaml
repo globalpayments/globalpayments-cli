@@ -1,0 +1,21 @@
+id: get
+name: "Get a single authentication — GET /authentications/{id}"
+scenario: "Call GET /authentications/{id}."
+required: false
+source: actions
+observability: polling
+tags:
+  - 3ds
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: AUTHENTICATIONS_SINGLE
+  resource: AUTHENTICATIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

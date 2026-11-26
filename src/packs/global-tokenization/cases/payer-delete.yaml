@@ -1,0 +1,22 @@
+id: payer-delete
+name: "Delete a payer — DELETE /payers/{id}"
+scenario: "Call DELETE /payers/{id}."
+required: false
+source: actions
+observability: polling
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+# Requires the payer-delete permission on the app; optional.
+matcher:
+  type: PAYER_DELETE
+  resource: PAYERS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

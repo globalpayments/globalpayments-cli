@@ -1,0 +1,21 @@
+id: get
+name: "Get a dispute — GET /disputes/{id}"
+scenario: "Call GET /disputes/{id}."
+required: true
+source: actions
+observability: polling
+tags:
+  - disputes
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: DISPUTE_SINGLE
+  resource: DISPUTES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

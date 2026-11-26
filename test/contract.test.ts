@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { Writable } from 'node:stream';
 import { buildCli } from '../src/index.js';
 import { buildEnvelope } from '../src/contract/envelope.js';
-import { emit, runCommand } from '../src/contract/emit.js';
+import { emit, nextActionsForError, runCommand } from '../src/contract/emit.js';
 import {
   ERROR_CODES,
   ERROR_CODE_EXIT,
@@ -107,6 +107,43 @@ describe('contract: json mode purity', () => {
 
     expect(rendered).toEqual(['summary']);
     expect(err.text()).toContain('E_CERT_REQUIRED_CASES_FAILING');
+  });
+
+  it('wraps next-step reasons under their command on a narrow terminal', () => {
+    const chunks: string[] = [];
+    // With an error the hints go to stderr, next to the error itself.
+    const stderr = { isTTY: true, columns: 40, write: (chunk: string) => chunks.push(chunk) } as unknown as NodeJS.WritableStream;
+    const error = new GlobalPaymentsError(ERROR_CODES.E_USAGE, 'bad');
+    emit('cases.show', { data: {}, error, nextActions: nextActionsForError(error) }, { json: false, stdout: captureStream().stream, stderr });
+    const text = chunks.join('');
+    expect(text).toContain('Next');
+    for (const line of text.split('\n')) expect(line.length, line).toBeLessThanOrEqual(40);
+    expect(text.replace(/\s+/g, ' ')).toContain('See the arguments and flags this command accepts.');
+  });
+
+  it('keeps progress text inside the output contract', async () => {
+    const textOut = captureStream();
+    await runCommand(
+      'demo',
+      { json: false, stdout: textOut.stream },
+      async (reportProgress) => {
+        reportProgress('streamed update');
+        return { data: { complete: true } };
+      }
+    );
+    expect(textOut.text()).toBe('streamed update\n');
+
+    const jsonOut = captureStream();
+    await runCommand(
+      'demo',
+      { json: true, stdout: jsonOut.stream },
+      async (reportProgress) => {
+        reportProgress('must not appear on stdout');
+        return { data: { complete: true } };
+      }
+    );
+    expect(JSON.parse(jsonOut.text()).data).toEqual({ complete: true });
+    expect(jsonOut.text()).not.toContain('must not appear');
   });
 });
 
@@ -217,18 +254,34 @@ describe('contract: manifest', () => {
     const ids = manifest.commands.map((c) => c.id).sort();
     expect(ids).toEqual(
       [
+        'api.get',
+        'api.post',
+        'agent.setup',
         'auth.test',
         'cases.list',
         'cases.show',
         'diagnose',
+        'quick-start',
         'doctor',
         'explain',
         'init',
+        'listen',
+        'logs.tail',
         'packs.list',
         'packs.show',
         'report',
         'run',
-        'watch'
+        'sandbox.create',
+        'transactions.get',
+        'transactions.testpay',
+        'trigger',
+        'watch',
+        'shell',
+        'ui.show',
+        'ui.set',
+        'ui.reset',
+        'ui.themes',
+        'completion'
       ].sort()
     );
   });

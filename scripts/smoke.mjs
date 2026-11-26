@@ -18,6 +18,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bin = path.join(root, 'dist', 'bin.js');
 
 const failures = [];
+// Personal terminal settings go to a throwaway directory, never the developer's own.
+const uiConfigDir = mkdtempSync(path.join(tmpdir(), 'gp-smoke-ui-'));
 let checks = 0;
 
 function check(label, condition, detail) {
@@ -27,12 +29,12 @@ function check(label, condition, detail) {
   }
 }
 
-function invoke(args) {
+function invoke(args, extraEnv = {}) {
   const result = spawnSync(process.execPath, [bin, ...args], {
     encoding: 'utf8',
     cwd: root,
     // Keep the environment credential-free so no smoke check can reach the network.
-    env: { ...process.env, GP_API_APP_ID: '', GP_API_APP_KEY: '' }
+    env: { ...process.env, GP_API_APP_ID: '', GP_API_APP_KEY: '', GP_CLI_CONFIG_DIR: uiConfigDir, ...extraEnv }
   });
   return { stdout: result.stdout ?? '', stderr: result.stderr ?? '', exitCode: result.status ?? -1 };
 }
@@ -88,6 +90,10 @@ check(
 const packIds = (packs?.data?.packs ?? []).map((pack) => pack.packId);
 check('packs list: includes global-core', packIds.includes('global-core'), packIds.join(', '));
 
+const quickStart = invokeJson(['quick-start'], 'quick-start');
+check('quick-start: succeeds offline', quickStart?.ok === true);
+check('quick-start: returns tutorial steps', Array.isArray(quickStart?.data?.steps) && quickStart.data.steps.length > 0);
+
 // --- cases: addresses are canonical and never double-namespaced ------------
 const cases = invokeJson(['cases', 'list', '--cert', 'global-core'], 'cases list');
 check('cases list: succeeds', cases?.ok === true);
@@ -110,6 +116,18 @@ check('missing config: exits 3', missingConfig?.exitCode === 3, `got ${missingCo
 
 const badFlag = invoke(['run', '--not-a-real-flag']);
 check('unknown flag: exits 2', badFlag.exitCode === 2, `got ${badFlag.exitCode}`);
+
+const badFlagJson = invokeJson(['run', '--not-a-real-flag'], 'run (unknown flag)');
+check('unknown flag (json): exits 2', badFlagJson?.exitCode === 2, `got ${badFlagJson?.exitCode}`);
+check('unknown flag (json): E_USAGE', badFlagJson?.error?.code === 'E_USAGE', badFlagJson?.error?.code);
+check('unknown flag (json): command is run', badFlagJson?.command === 'run', badFlagJson?.command);
+
+const missingArg = invokeJson(['cases', 'show'], 'cases show (missing argument)');
+check('missing argument (json): E_USAGE', missingArg?.error?.code === 'E_USAGE', missingArg?.error?.code);
+check('missing argument (json): command is cases.show', missingArg?.command === 'cases.show', missingArg?.command);
+
+const unknownCommand = invokeJson(['definitely-not-a-command'], 'unknown command');
+check('unknown command (json): E_USAGE', unknownCommand?.error?.code === 'E_USAGE', unknownCommand?.error?.code);
 
 // --- text mode still works -------------------------------------------------
 const textPacks = invoke(['packs', 'list']);
@@ -210,6 +228,106 @@ try {
   check('diagnose (text): states the fix', diagnoseText.stdout.includes('2002'), diagnoseText.stdout.slice(0, 200));
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });
+}
+
+// --- terminal UI: new commands keep the envelope contract --------------------
+try {
+  const shellJson = invokeJson(['shell'], 'shell');
+  check('shell --json: describes slash commands without starting', shellJson?.ok === true && shellJson?.data?.interactive === false);
+  check('shell --json: lists /doctor', (shellJson?.data?.commands ?? []).some((c) => c.command === '/doctor'));
+
+  const uiShow = invokeJson(['ui', 'show'], 'ui show');
+  check('ui show: reports default settings', uiShow?.data?.settings?.theme === 'auto' && uiShow?.data?.resolved?.colorLevel === 0);
+
+  const uiSet = invokeJson(['ui', 'set', 'theme', 'gp-light'], 'ui set');
+  check('ui set: saves the value', uiSet?.ok === true && uiSet?.data?.value === 'gp-light');
+  const uiShowAfter = invokeJson(['ui', 'show'], 'ui show (after set)');
+  check('ui set: is read back', uiShowAfter?.data?.settings?.theme === 'gp-light' && uiShowAfter?.data?.sources?.theme === 'file');
+  const uiBad = invokeJson(['ui', 'set', 'theme', 'neon'], 'ui set (bad value)');
+  check('ui set (bad value): E_USAGE, exit 2', uiBad?.error?.code === 'E_USAGE' && uiBad?.exitCode === 2);
+  const uiReset = invokeJson(['ui', 'reset'], 'ui reset');
+  check('ui reset: succeeds', uiReset?.ok === true);
+  const uiThemes = invokeJson(['ui', 'themes'], 'ui themes');
+  check('ui themes: lists four themes', uiThemes?.data?.themes?.length === 4);
+
+  const completionJson = invokeJson(['completion', 'zsh'], 'completion');
+  check('completion --json: carries the script', completionJson?.data?.script?.includes('compdef'));
+  const completionText = invoke(['completion', 'bash']);
+  check('completion (text): prints only the script', completionText.stdout.startsWith('# globalpayments completion for bash') && completionText.stderr === '');
+  const badShell = invokeJson(['completion', 'tcsh'], 'completion (bad shell)');
+  check('completion (bad shell): E_USAGE', badShell?.error?.code === 'E_USAGE');
+
+  const complete = invoke(['__complete', '--shell', 'plain', '--', 'watch', '--cert', 'global-co']);
+  check('__complete: answers from the bundled packs', complete.stdout.split('\n')[0] === 'global-core', complete.stdout.slice(0, 200));
+  check(
+    '__complete: hidden from the contract',
+    !(explain?.data?.commands ?? []).some((c) => c.id.startsWith('__')),
+    (explain?.data?.commands ?? []).map((c) => c.id).join(', ')
+  );
+
+  // Off a terminal, a bare invocation keeps printing help instead of waiting for input.
+  const bare = invoke([]);
+  check('no arguments (piped): prints help and exits 0', bare.exitCode === 0 && `${bare.stdout}${bare.stderr}`.includes('Get started'));
+  check('no arguments (piped): no escape codes', !/\x1B\[/.test(`${bare.stdout}${bare.stderr}`));
+
+  const forced = invoke(['--help'], { FORCE_COLOR: '3' });
+  check('--help with FORCE_COLOR: coloured', /\x1B\[/.test(forced.stdout));
+  const noColor = invoke(['doctor', '--help', '--no-color'], { FORCE_COLOR: '3' });
+  check('--no-color: accepted anywhere and wins over FORCE_COLOR', noColor.exitCode === 0 && !/\x1B\[/.test(noColor.stdout));
+  const piped = invoke(['packs', 'list']);
+  check('text output to a pipe: no escape codes', piped.exitCode === 0 && !/\x1B\[/.test(piped.stdout));
+
+  // Drive the real bash completion function against this build, colons included.
+  const binDir = mkdtempSync(path.join(tmpdir(), 'gp-smoke-bin-'));
+  try {
+    writeFileSync(path.join(binDir, 'globalpayments'), `#!/bin/sh\nexec "${process.execPath}" "${bin}" "$@"\n`, { mode: 0o755 });
+    const bashScript = completionText.stdout;
+    const complete = (lineText) => {
+      const run = spawnSync(
+        'bash',
+        [
+          '-c',
+          `eval "$GP_SCRIPT"; COMP_WORDBREAKS=$' \\t\\n"\\'><=;|&(:'; COMP_LINE="$GP_LINE"; COMP_POINT=\${#COMP_LINE}; _globalpayments_complete; printf '%s\\n' "\${COMPREPLY[@]}"`
+        ],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH}`, GP_SCRIPT: bashScript, GP_LINE: lineText, GP_CLI_CONFIG_DIR: uiConfigDir }
+        }
+      );
+      return run.error ? undefined : run.stdout.split('\n').filter(Boolean);
+    };
+    const first = complete('globalpayments ap');
+    if (first !== undefined) {
+      check('bash completion: commands', first.includes('api'), JSON.stringify(first));
+      const certs = complete('globalpayments watch --cert global-co');
+      check('bash completion: pack ids after --cert', certs?.[0] === 'global-core', JSON.stringify(certs));
+      const address = complete('globalpayments cases show global-core:basic');
+      check('bash completion: case addresses across the colon', JSON.stringify(address) === '["basic-sale-approved"]', JSON.stringify(address));
+      // A file name is data, never code: compgen -W used to expand $(...) inside one.
+      const trapDir = mkdtempSync(path.join(tmpdir(), 'gp-smoke-trap-'));
+      try {
+        writeFileSync(path.join(trapDir, 'a$(touch PWNED).json'), '{}');
+        const run = spawnSync(
+          'bash',
+          ['-c', `cd "$GP_DIR"; eval "$GP_SCRIPT"; COMP_LINE="globalpayments api post /x --data-file "; COMP_POINT=\${#COMP_LINE}; _globalpayments_complete; printf '%s\\n' "\${COMPREPLY[@]}"`],
+          { encoding: 'utf8', env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH}`, GP_SCRIPT: bashScript, GP_DIR: trapDir, GP_CLI_CONFIG_DIR: uiConfigDir } }
+        );
+        check('bash completion: offers file names literally', run.stdout.includes('a$(touch PWNED).json'), run.stdout);
+        check('bash completion: never runs code from a file name', !existsSync(path.join(trapDir, 'PWNED')));
+      } finally {
+        rmSync(trapDir, { recursive: true, force: true });
+      }
+      const sub = complete('globalpayments api ');
+      check('bash completion: subcommands after a space', JSON.stringify(sub) === '["get","post"]', JSON.stringify(sub));
+    }
+  } finally {
+    rmSync(binDir, { recursive: true, force: true });
+  }
+
+  const script = invoke(['shell'], {});
+  check('shell (piped, empty input): exits cleanly', script.exitCode === 0, `exit ${script.exitCode} ${script.stderr.slice(0, 200)}`);
+} finally {
+  rmSync(uiConfigDir, { recursive: true, force: true });
 }
 
 if (failures.length > 0) {

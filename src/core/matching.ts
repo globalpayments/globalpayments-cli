@@ -19,7 +19,8 @@ function matchesBaseComposite(txn: ObservedTxn, criteria: MatchCriteria): boolea
     matchField(txn.amount, criteria.amount) &&
     matchField(txn.currency, criteria.currency) &&
     matchField(txn.channel, criteria.channel) &&
-    matchField(txn.accountName, criteria.accountName)
+    matchField(txn.accountName, criteria.accountName) &&
+    matchField(txn.resource, criteria.resource)
   );
 }
 

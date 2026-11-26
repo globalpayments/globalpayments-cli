@@ -1,0 +1,26 @@
+id: cp-adjustment
+name: "CP Adjustment: tip/amount adjustment on a card-present sale (amount 4003)"
+scenario: "POST /transactions with channel CP, amount 4003, then POST /transactions/{id}/adjustment adding a gratuity."
+required: false
+observability: manual
+tags:
+  - cp
+  - adjustment
+  - gratuity
+mode: latest
+# OBSERVABILITY: manual
+# This case only proves the 4003 sale was captured. The /transactions list cannot
+# show that /adjustment was called, and an adjustment that changes the total may
+# move the transaction off amount 4003. Confirm the adjustment response manually.
+matcher:
+  type: SALE
+  channel: CP
+  amount: 4003
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

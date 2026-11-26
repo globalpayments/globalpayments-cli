@@ -1,0 +1,23 @@
+id: sale-eur
+name: "Multi-currency: EUR sale (amount 8001)"
+scenario: "POST /transactions type SALE, currency EUR, amount 8001."
+required: true
+observability: polling
+tags:
+  - multicurrency
+  - eur
+mode: latest
+# Currency is part of the matcher, so the same amount is reused across currencies.
+matcher:
+  type: SALE
+  channel: CNP
+  currency: EUR
+  amount: 8001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

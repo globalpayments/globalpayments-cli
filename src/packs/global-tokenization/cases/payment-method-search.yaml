@@ -1,0 +1,22 @@
+id: payment-method-search
+name: "Search for a payment method — POST /payment-methods/search"
+scenario: "Call POST /payment-methods/search."
+required: false
+source: actions
+observability: partial
+tags:
+  - tokenization
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+# GP logs this endpoint as PAYMENT_METHOD_LIST, the same action type as global-tokenization:payment-method-list, so this case cannot tell them apart.
+matcher:
+  type: PAYMENT_METHOD_LIST
+  resource: PAYMENT_METHODS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

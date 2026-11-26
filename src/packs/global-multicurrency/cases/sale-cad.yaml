@@ -1,0 +1,23 @@
+id: sale-cad
+name: "Multi-currency: CAD sale (amount 8001)"
+scenario: "POST /transactions type SALE, currency CAD, amount 8001."
+required: false
+observability: polling
+tags:
+  - multicurrency
+  - cad
+mode: latest
+# Optional: only applies if the merchant account is enabled for CAD.
+matcher:
+  type: SALE
+  channel: CNP
+  currency: CAD
+  amount: 8001
+expect:
+  latest:
+    statusIn:
+      - CAPTURED
+    responseCodeIn:
+      - "SUCCESS"
+evaluator:
+  type: declarative

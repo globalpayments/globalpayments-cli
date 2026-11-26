@@ -1,46 +1,46 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { t } from '../ui/index.js';
 import { runCommand } from '../contract/emit.js';
 import { buildManifest, type Manifest } from '../contract/manifest.js';
 
 function renderManifest(manifest: Manifest): void {
-  console.log(pc.bold(`${manifest.tool} v${manifest.cliVersion}`));
-  console.log(pc.gray(manifest.description));
+  console.log(t.strong(`${manifest.tool} v${manifest.cliVersion}`));
+  console.log(t.muted(manifest.description));
   console.log();
 
-  console.log(pc.bold('Commands'));
+  console.log(t.strong('Commands'));
   for (const command of manifest.commands) {
-    console.log(`  ${pc.cyan(command.usage)}`);
-    console.log(`      ${pc.gray(command.description)}`);
+    console.log(`  ${t.accent(command.usage)}`);
+    console.log(`      ${t.muted(command.description)}`);
   }
 
   console.log();
-  console.log(pc.bold('Exit codes'));
+  console.log(t.strong('Exit codes'));
   for (const exit of manifest.exitCodes) {
-    console.log(`  ${pc.yellow(String(exit.code))} ${exit.name}${exit.retryable ? pc.gray(' (retryable)') : ''}`);
-    console.log(`      ${pc.gray(exit.description)}`);
+    console.log(`  ${t.accent(String(exit.code))} ${exit.name}${exit.retryable ? t.muted(' (retryable)') : ''}`);
+    console.log(`      ${t.muted(exit.description)}`);
   }
 
   console.log();
-  console.log(pc.bold('Environment'));
+  console.log(t.strong('Environment'));
   for (const variable of manifest.environment) {
-    const flag = variable.required ? pc.yellow('required') : pc.gray('optional');
-    console.log(`  ${pc.cyan(variable.name)} (${flag})${variable.default ? pc.gray(` default=${variable.default}`) : ''}`);
-    console.log(`      ${pc.gray(variable.description)}`);
+    const flag = variable.required ? t.warning('required') : t.muted('optional');
+    console.log(`  ${t.accent(variable.name)} (${flag})${variable.default ? t.muted(` default=${variable.default}`) : ''}`);
+    console.log(`      ${t.muted(variable.description)}`);
   }
 
   console.log();
-  console.log(pc.bold('Workflows'));
+  console.log(t.strong('Workflows'));
   for (const workflow of manifest.workflows) {
-    console.log(`  ${pc.cyan(workflow.id)} — ${workflow.goal}`);
+    console.log(`  ${t.accent(workflow.id)} — ${workflow.goal}`);
     for (const step of workflow.steps) {
-      console.log(`      ${pc.yellow(step.command)}`);
-      console.log(`          ${pc.gray(step.purpose)}`);
+      console.log(`      ${t.command(step.command)}`);
+      console.log(`          ${t.muted(step.purpose)}`);
     }
   }
 
   console.log();
-  console.log(pc.gray('Run with --json for the complete machine-readable contract.'));
+  console.log(t.muted('Run with --json for the complete machine-readable contract.'));
 }
 
 /**

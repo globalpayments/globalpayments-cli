@@ -1,0 +1,21 @@
+id: reauthorization
+name: "Re-authorize a reversed sale — POST /transactions/{id}/reauthorization"
+scenario: "Call POST /transactions/{id}/reauthorization."
+required: false
+source: actions
+observability: polling
+tags:
+  - transactions
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log (scripts/verify-action-types.mjs, 2026-11-02).
+matcher:
+  type: REAUTHORIZATION
+  resource: TRANSACTIONS
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

@@ -1,0 +1,15 @@
+id: global-disputes
+name: Global Payments Disputes — API Request Cases
+version: 1.0.0
+extends: []
+metadata:
+  region: global
+  industry: ecomm
+tags:
+  - global
+  - gp-api
+  - actions
+  - disputes
+  - chargebacks
+cases:
+  directory: cases

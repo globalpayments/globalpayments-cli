@@ -1,0 +1,22 @@
+id: settlement-disputes
+name: "List settled disputes — GET /settlement/disputes"
+scenario: "Call GET /settlement/disputes."
+required: false
+source: actions
+observability: partial
+tags:
+  - reporting
+  - action-type-confirmed
+mode: latest
+# Action type confirmed in a GP sandbox action log.
+# GET /disputes logs the same action type. GP logs this request with the same action type as another endpoint, so this case cannot tell them apart.
+matcher:
+  type: DISPUTE_LIST
+  resource: DISPUTES
+expect:
+  latest:
+    responseCodeIn:
+      - "200"
+      - "201"
+evaluator:
+  type: declarative

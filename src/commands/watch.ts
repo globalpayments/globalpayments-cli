@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { t } from '../ui/index.js';
 import { runCommand, type CommandOutcome } from '../contract/emit.js';
 import { certificationError, collectRunResult, createSession, trackObservation } from '../core/session.js';
 import { persistRunResult } from '../core/result-store.js';
@@ -8,6 +8,7 @@ import { InteractiveWatchController } from '../io/interactive-watch.js';
 import { renderClassicWatchFrame } from '../io/watch-renderer.js';
 import { renderRunSummary, buildRunNextActions } from '../io/run-renderer.js';
 import type { RunCommandData } from './run.js';
+import type { EnginePollResult } from '../core/engine.js';
 
 export function registerWatchCommand(program: Command): void {
   program
@@ -48,7 +49,7 @@ export function registerWatchCommand(program: Command): void {
         const live = !options.json;
 
         if (live) {
-          console.log(pc.cyan('watch'), `Observing ${session.activePacks.length} pack(s). Ctrl-C to stop.\n`);
+          console.log(t.accent('watch'), `Observing ${session.activePacks.length} pack(s). Ctrl-C to stop.\n`);
         }
 
         const abortController = new AbortController();
@@ -62,14 +63,16 @@ export function registerWatchCommand(program: Command): void {
           : undefined;
 
         let transactionsObserved = 0;
+        let actionsObserved = 0;
         let pollCycles = 0;
         let timedOut = false;
         const startedAt = Date.now();
         const observation = trackObservation(session.engine);
 
-        session.engine.on('cycleComplete', (event) => {
+        session.engine.on('cycleComplete', (event: EnginePollResult) => {
           pollCycles += 1;
           transactionsObserved += event.transactionsFetched;
+          actionsObserved += event.actionsFetched;
 
           if (!live) {
             return;
@@ -80,6 +83,7 @@ export function registerWatchCommand(program: Command): void {
             controller.update({
               cycleNumber: event.cycleNumber,
               transactionsFetched: event.transactionsFetched,
+              actionsFetched: event.actionsFetched,
               cases,
               recentTransactions: event.recentTransactions
             });
@@ -90,6 +94,7 @@ export function registerWatchCommand(program: Command): void {
             renderClassicWatchFrame({
               cycleNumber: event.cycleNumber,
               transactionsFetched: event.transactionsFetched,
+              actionsFetched: event.actionsFetched,
               cases,
               recentTransactions: event.recentTransactions,
               caseDefinitions: session.caseIndex
@@ -103,7 +108,7 @@ export function registerWatchCommand(program: Command): void {
 
         session.engine.on('pollError', (event: { message: string }) => {
           if (live && !controller) {
-            console.error(pc.red('poll error:'), event.message);
+            console.error(t.danger('poll error:'), event.message);
           }
         });
         controller?.start(session.engine.getCaseStates());
@@ -121,6 +126,7 @@ export function registerWatchCommand(program: Command): void {
           observation: {
             pollCycles,
             transactionsObserved,
+            actionsObserved,
             timedOut,
             elapsedMs: Date.now() - startedAt,
             observationFailed: observation.failed

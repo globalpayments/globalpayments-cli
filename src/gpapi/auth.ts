@@ -17,7 +17,10 @@ export interface AuthTokenMetadata {
 }
 
 export interface AuthProvider {
-  getToken(input: AuthInput): Promise<{ accessToken: string; metadata: AuthTokenMetadata }>;
+  getToken(
+    input: AuthInput,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ accessToken: string; metadata: AuthTokenMetadata }>;
 }
 
 export interface AccessTokenResponse {
@@ -245,7 +248,10 @@ export class GpApiAuthProvider implements AuthProvider {
     private readonly nowFactory: () => Date = () => new Date()
   ) {}
 
-  async getToken(input: AuthInput): Promise<{ accessToken: string; metadata: AuthTokenMetadata }> {
+  async getToken(
+    input: AuthInput,
+    options: { signal?: AbortSignal } = {}
+  ): Promise<{ accessToken: string; metadata: AuthTokenMetadata }> {
     const now = this.nowFactory();
     const nowMs = now.getTime();
     const cached = getCachedToken(input, nowMs);
@@ -272,10 +278,15 @@ export class GpApiAuthProvider implements AuthProvider {
           nonce,
           secret,
           grant_type: 'client_credentials'
-        })
+        }),
+        ...(options.signal ? { signal: options.signal } : {})
       });
     } catch (error: unknown) {
-      throw new NetworkAuthError('Unable to reach GP API auth endpoint', error);
+      if (options.signal?.aborted && options.signal.reason?.name !== 'TimeoutError') throw error;
+      throw new NetworkAuthError(
+        options.signal?.aborted ? 'GP API auth request timed out' : 'Unable to reach GP API auth endpoint',
+        error
+      );
     }
 
     if (!response.ok) {

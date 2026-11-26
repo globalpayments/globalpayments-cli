@@ -1,5 +1,8 @@
 import { Command } from 'commander';
-import pc from 'picocolors';
+import { padEnd, statusMark, stringWidth, sym, t, wrapText } from '../ui/index.js';
+import { terminalColumns } from '../ui/capabilities.js';
+import { withSpinner } from '../ui/spinner.js';
+import { inlineCode } from '../ui/text.js';
 import { existsSync } from 'node:fs';
 import { runCommand } from '../contract/emit.js';
 import { GlobalPaymentsError, ERROR_CODES, toGlobalPaymentsError, type ErrorCode } from '../contract/errors.js';
@@ -40,22 +43,31 @@ function fail(id: string, title: string, detail: string, error: GlobalPaymentsEr
 }
 
 function renderDoctor(data: DoctorData): void {
-  console.log(pc.bold('globalpayments readiness'));
+  const width = terminalColumns();
+  const titleWidth = Math.max(...data.checks.map((check) => stringWidth(check.title)));
+  const indent = 4 + titleWidth + 3;
+  const detailWidth = Math.max(24, width - indent);
+  const pad = ' '.repeat(indent);
+  console.log();
+  console.log(`${t.heading('Readiness')}${data.environment ? ` ${t.muted(`${sym().dot} ${data.environment}`)}` : ''}`);
   console.log();
   for (const check of data.checks) {
-    const icon = check.status === 'pass' ? pc.green('✓') : check.status === 'fail' ? pc.red('✗') : pc.gray('–');
-    console.log(`  ${icon} ${check.title}`);
-    console.log(`      ${pc.gray(check.detail)}`);
+    const mark = statusMark(check.status === 'pass' ? 'pass' : check.status === 'fail' ? 'fail' : 'skip');
+    const [first = '', ...rest] = wrapText(check.detail, detailWidth);
+    console.log(`  ${mark} ${padEnd(check.title, titleWidth)}   ${t.muted(first)}`);
+    for (const line of rest) console.log(`${pad}${t.muted(line)}`);
     if (check.remediation) {
-      console.log(`      ${pc.yellow('fix:')} ${check.remediation}`);
+      const [fixFirst = '', ...fixRest] = wrapText(check.remediation, detailWidth - 5);
+      console.log(`${pad}${t.warning('fix:')} ${inlineCode(fixFirst)}`);
+      for (const line of fixRest) console.log(`${pad}     ${inlineCode(line)}`);
     }
   }
   console.log();
-  console.log(data.ready ? pc.green('Ready for certification runs.') : pc.red('Not ready.'));
-  if (data.packsAvailable.length > 0) {
-    console.log();
-    console.log(pc.cyan('Bundled suites:'), data.packsAvailable.map((id) => pc.yellow(id)).join(', '));
-  }
+  console.log(
+    data.ready
+      ? `${statusMark('pass')} ${t.success('Ready for certification runs.')}`
+      : `${statusMark('fail')} ${t.danger('Not ready.')} ${t.muted('Fix the first failing check and run doctor again.')}`
+  );
 }
 
 export function registerDoctorCommand(program: Command): void {
@@ -145,12 +157,17 @@ export function registerDoctorCommand(program: Command): void {
 
         // 4. Token exchange — the only network call doctor makes.
         try {
-          const token = await new GpApiAuthProvider().getToken({
-            appId: config.auth.appId,
-            appKey: config.auth.appKey,
-            environment: config.environment,
-            apiVersion: config.auth.apiVersion
-          });
+          const token = await withSpinner(
+            `Exchanging credentials for a ${config.environment} token`,
+            () =>
+              new GpApiAuthProvider().getToken({
+                appId: config.auth.appId,
+                appKey: config.auth.appKey,
+                environment: config.environment,
+                apiVersion: config.auth.apiVersion
+              }),
+            { silent: options.json }
+          );
           checks.push(
             pass(
               'auth',

@@ -14,6 +14,7 @@ export interface InteractiveWatchControllerOptions {
 export interface InteractiveWatchUpdate {
   cycleNumber?: number;
   transactionsFetched?: number;
+  actionsFetched?: number;
   cases: CaseRunState[];
   recentTransactions?: TransactionRecord[];
 }
@@ -23,6 +24,7 @@ export class InteractiveWatchController {
   private recentTransactions: TransactionRecord[] = [];
   private cycleNumber: number | undefined;
   private transactionsFetched: number | undefined;
+  private actionsFetched: number | undefined;
   private selectedIndex = 0;
   private focus: 'list' | 'details' = 'list';
   private detailOpen = false;
@@ -59,6 +61,7 @@ export class InteractiveWatchController {
   update(update: InteractiveWatchUpdate): void {
     this.cycleNumber = update.cycleNumber;
     this.transactionsFetched = update.transactionsFetched;
+    this.actionsFetched = update.actionsFetched;
     this.cases = update.cases;
     this.recentTransactions = update.recentTransactions ?? [];
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, this.cases.length - 1));
@@ -144,6 +147,7 @@ export class InteractiveWatchController {
     const frame = renderInteractiveWatchFrame({
       cycleNumber: this.cycleNumber,
       transactionsFetched: this.transactionsFetched,
+      actionsFetched: this.actionsFetched,
       cases: this.cases,
       recentTransactions: this.recentTransactions,
       caseDefinitions: this.caseDefinitions,
